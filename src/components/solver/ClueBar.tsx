@@ -48,6 +48,11 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
       <button type="button" tabIndex={-1} aria-label="Next clue" onClick={onNext} className={arrowClass}>
         ›
       </button>
+
+      {/* Only visible in phone landscape, where the keyboard is hidden. */}
+      <span className="landscape-only hidden shrink-0 items-center pr-3 text-[10px] leading-tight text-gray-400 dark:text-gray-500">
+        Rotate to type
+      </span>
     </div>
   )
 }

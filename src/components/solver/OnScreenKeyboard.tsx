@@ -32,7 +32,7 @@ export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false 
 
   return (
     <div
-      className="touch-target shrink-0 md:hidden bg-gray-200 dark:bg-gray-900 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] flex flex-col gap-1.5"
+      className="touch-target landscape-hide shrink-0 md:hidden bg-gray-200 dark:bg-gray-900 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] flex flex-col gap-1.5"
       // Padding, not margin, so the keyboard's background extends into the
       // home-indicator strip instead of leaving a band of page colour.
       aria-label="Letter keyboard"

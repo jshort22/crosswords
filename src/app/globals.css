@@ -100,3 +100,16 @@ body {
     display: none;
   }
 }
+
+/* Landscape on a phone: a header + grid + clue bar + 3-row keyboard genuinely
+   does not fit in ~390px of height. iOS ignores the manifest's orientation
+   lock, so this can't be prevented — instead drop the keyboard and keep the
+   grid and clue browsing usable, with a hint to rotate back to type. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-hide {
+    display: none;
+  }
+  .landscape-only {
+    display: flex;
+  }
+}
