@@ -3,8 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import PuzzleCard from '@/components/PuzzleCard'
 import ThemeToggle from '@/components/ThemeToggle'
 
-export const revalidate = 60
-
 export default async function HomePage() {
   const supabase = await createClient()
 

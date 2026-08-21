@@ -348,9 +348,25 @@ Production (Vercel) showed "No puzzles yet" with an empty puzzle list.
 
 Verified both paths: pointing `NEXT_PUBLIC_SUPABASE_URL` at a dead host renders the error state (and logs `TypeError: fetch failed`); real credentials render all three puzzles.
 
-### Discovery: `revalidate` on the Landing Page Is Dead Code
-`export const revalidate = 60` in `src/app/page.tsx` has **no effect**. `createClient()` calls `cookies()`, which is a Next.js Dynamic API and opts the route out of static rendering. `npm run build` confirms `/` is `ƒ (Dynamic)`, not ISR. The landing page hits the database on every request; there is no stale cache to wait out during an outage. The line is misleading and should probably be removed.
+### Removed Dead `revalidate` on the Landing Page
+`export const revalidate = 60` in `src/app/page.tsx` had **no effect** and was removed. `createClient()` calls `cookies()`, a Next.js Dynamic API that opts the route out of static rendering — `npm run build` confirms `/` is `ƒ (Dynamic)`, not ISR, both before and after removal. The landing page hits the database on every request; there is no stale cache to wait out during an outage. The line actively misled diagnosis during this session.
+
+### Solver Page: Outage vs. Missing Puzzle
+`src/app/puzzles/[id]/page.tsx` checked `error` but called `notFound()` for it, so a backend outage rendered "puzzle not found" — telling the visitor their puzzle was gone when the database was merely unreachable.
+
+Switched `.single()` to **`.maybeSingle()`**. `.single()` reports zero matching rows as an error (`PGRST116`), which collapses "no such puzzle" and "backend failed" into one indistinguishable case. `.maybeSingle()` returns `data: null` with no error for zero rows, so the two separate cleanly:
+
+```ts
+if (error) { /* log + render error panel */ }
+if (!data) notFound()
+```
+
+Verified all three paths: real puzzle → 200 solver; missing/unpublished id → 404; backend unreachable → 200 with the error panel (was a 404).
+
+### Production Confirmed Healthy
+`https://crosswords-gilt.vercel.app/` returns HTTP 200 and serves all three puzzles after the unpause. Vercel's env vars were correctly configured all along — the pause was the entire cause.
 
 ### Still Open
-- `src/app/puzzles/[id]/page.tsx` checks `error` but calls `notFound()` for it — so a backend outage renders "puzzle not found" rather than an error. Same class of misleading failure, not yet addressed.
-- `createClient()` uses non-null assertions (`!`) on both env vars. Missing env vars in Vercel would throw at client construction rather than surface as a query error.
+- `createClient()` uses non-null assertions (`!`) on both env vars. Missing env vars would throw at client construction rather than surface as a query error — a different failure mode from the one fixed here, and not currently handled.
+- The solver's outage state returns HTTP **200**, not 503. Fine for humans; slightly wrong for uptime monitoring or crawlers.
+- `npx eslint` is broken in this checkout: `eslint-config-next` is in `package.json` and `node_modules` but resolves to a missing `dist/core-web-vitals.js`. Pre-existing (fails on a clean tree); `npm run lint` needs a reinstall to work.

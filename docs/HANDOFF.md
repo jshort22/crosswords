@@ -45,7 +45,7 @@ SUPABASE_SERVICE_ROLE_KEY=<key>
 | Route | Description |
 |---|---|
 | `/` | Public puzzle list — shows all published puzzles as cards |
-| `/puzzles/[id]` | Full crossword solver (NYT-style) |
+| `/puzzles/[id]` | Full crossword solver (NYT-style). 404s on a missing/unpublished id; shows an error panel if the DB is unreachable. |
 | `/admin/login` | Password gate for admin (password: `rebus`) |
 | `/admin` | Admin puzzle list with draft/published status — requires auth |
 | `/admin/new` | 4-step wizard to create a new puzzle — requires auth |
@@ -354,5 +354,6 @@ Compare against `nslookup api.supabase.com`, which should always resolve — if 
 | Grid editor advance | Skips black cells in reading order (left-to-right, top-to-bottom). If no white cell exists beyond current position, cursor stays put. |
 | Supabase pausing | Free-tier project pauses after ~a week idle; hostname goes NXDOMAIN. Unpause from the dashboard; origin needs 2–3 min to boot. Data survives. |
 | Query error handling | Landing and admin pages surface Supabase `error` as a distinct error state. Do not go back to discarding it — a dead backend then looks identical to an empty library. |
-| `revalidate` on `/` | `export const revalidate = 60` in `page.tsx` is dead code. `createClient()` calls `cookies()`, forcing dynamic rendering — build confirms `/` is `ƒ (Dynamic)`. The landing page is never cached. |
+| Landing page caching | There is none. `createClient()` calls `cookies()`, forcing dynamic rendering — build confirms `/` is `ƒ (Dynamic)`. A `revalidate` export here would be dead code (one was removed in Session 9); the page hits the DB every request. |
+| `.maybeSingle()` on solver | The solver query uses `.maybeSingle()`, not `.single()`, so "no such puzzle" (`data: null`) stays distinct from "backend down" (`error`). `.single()` reports zero rows as `PGRST116` and would make an outage render as a 404. |
 | Vercel env vars | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be set in Vercel project settings. `.env.local` is gitignored and does not reach production. |
