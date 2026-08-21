@@ -210,16 +210,13 @@ export default function SolverClient({ puzzle }: Props) {
   const activeAcrossClue = getActiveClue(puzzle.cluesAcross, state.activeRow, state.activeCol)
   const activeDownClue = getActiveClue(puzzle.cluesDown, state.activeRow, state.activeCol)
 
-  const displayAcrossNumber = state.direction === 'across' ? activeAcrossClue?.number ?? null : null
-  const displayDownNumber = state.direction === 'down' ? activeDownClue?.number ?? null : null
-
   const activeClue = state.direction === 'across' ? activeAcrossClue : activeDownClue
 
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-svh flex flex-col overflow-hidden overscroll-none pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {/* Header — sections match the main layout widths so the title centres over the grid */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center">
+      <header className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center pt-[env(safe-area-inset-top)]">
         {/* Left: back button — matches aside w-40 */}
         <div className="w-40 shrink-0 px-4 py-3 hidden md:flex items-center">
           <Link
@@ -288,7 +285,7 @@ export default function SolverClient({ puzzle }: Props) {
       </header>
 
       {/* Main area */}
-      <main className="flex flex-1 overflow-hidden">
+      <main className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left action panel */}
         <aside className="hidden md:flex flex-col w-40 border-r border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-3 gap-2">
           {!confirmReset ? (
@@ -355,9 +352,15 @@ export default function SolverClient({ puzzle }: Props) {
         </aside>
 
         {/* Grid column */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Scrollable grid area */}
-          <div className="flex-1 flex flex-col items-center p-4 overflow-auto gap-3">
+          {/* min-h-0 lets this flex child shrink below its content size. container-type
+              size makes its dimensions queryable so the grid can size against BOTH
+              axes (see CrosswordGrid). No overflow-auto: the grid always fits. */}
+          <div
+            className="flex-1 min-h-0 flex flex-col items-center justify-center p-2 gap-2 overflow-hidden"
+            style={{ containerType: 'size' }}
+          >
             <CrosswordGrid
               puzzle={puzzle}
               state={state}
@@ -375,7 +378,7 @@ export default function SolverClient({ puzzle }: Props) {
           </div>
 
           {/* Active clue bar — pinned below the grid, always in view */}
-          <div className="px-4 pb-4 flex justify-center">
+          <div className="hidden md:flex px-4 pb-4 justify-center">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2 max-w-full">
               {activeClue ? (
                 <>
@@ -411,24 +414,6 @@ export default function SolverClient({ puzzle }: Props) {
           </div>
         </aside>
       </main>
-
-      {/* Mobile clue panels below grid */}
-      <section className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div className="border-b border-gray-100">
-          <CluePanel
-            title="Across"
-            clues={puzzle.cluesAcross}
-            activeClueNumber={displayAcrossNumber}
-            onClueClick={handleAcrossClueClick}
-          />
-        </div>
-        <CluePanel
-          title="Down"
-          clues={puzzle.cluesDown}
-          activeClueNumber={displayDownNumber}
-          onClueClick={handleDownClueClick}
-        />
-      </section>
 
       {showModal && (
         <CompletionModal
