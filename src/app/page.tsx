@@ -19,7 +19,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen">
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-5xl mx-auto px-4 py-5 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-5 pt-[calc(1.25rem+env(safe-area-inset-top))] flex items-center justify-between">
           <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight font-serif">
             Crossword Puzzles
           </h1>
@@ -27,7 +27,7 @@ export default async function HomePage() {
             <ThemeToggle />
             <Link
               href="/admin"
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 transition-colors"
+              className="hide-in-standalone text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 transition-colors"
             >
               Admin
             </Link>
@@ -35,7 +35,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         {error ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">⚠️</div>
