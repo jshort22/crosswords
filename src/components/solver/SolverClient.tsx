@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import type { CrosswordPuzzle, Clue, SolverState } from '@/lib/crossword/types'
+import type { CrosswordPuzzle, Clue, SolverState, Direction } from '@/lib/crossword/types'
 import { useCrosswordSolver } from '@/hooks/useCrosswordSolver'
 import { getActiveClue, difficultyLabel, difficultyColors, formatTime } from '@/lib/crossword/utils'
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
+import ClueBar from './ClueBar'
+import ClueSheet from './ClueSheet'
+import OnScreenKeyboard from './OnScreenKeyboard'
 import ThemeToggle from '@/components/ThemeToggle'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface Props {
   puzzle: CrosswordPuzzle
@@ -43,6 +47,8 @@ export default function SolverClient({ puzzle }: Props) {
   const [celebrationPhase, setCelebrationPhase] = useState<'idle' | 'sweep' | 'gold'>('idle')
   const [elapsed, setElapsed] = useState(0)
   const [timerVisible, setTimerVisible] = useState(true)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const isMobile = useIsMobile()
   // State, not a ref: it batches with the restore dispatches below, so the first
   // render where hasRestored is true already has the restored cells/elapsed. A ref
   // would flip synchronously and let the save effect fire against empty state.
@@ -99,6 +105,7 @@ export default function SolverClient({ puzzle }: Props) {
     try { localStorage.removeItem(storageKey(puzzle.id)) } catch {}
     try { localStorage.setItem(`crossword-solved-${puzzle.id}`, JSON.stringify({ elapsed: finalElapsed })) } catch {}
 
+    setSheetOpen(false)
     setCelebrationPhase('sweep')
     let modalTimer: ReturnType<typeof setTimeout> | undefined
     const sweepTimer = setTimeout(() => {
@@ -112,38 +119,49 @@ export default function SolverClient({ puzzle }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isComplete])
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      const { activeRow, activeCol, direction } = state
+  // Input is extracted from handleKeyDown so the physical keyboard and the
+  // on-screen keyboard reach the SAME implementation. Forking these would fork
+  // the isComplete guard, and the day one side changed, a solved gold grid
+  // would become editable on the other.
 
+  const inputLetter = useCallback(
+    (letter: string) => {
       // A completed grid is read-only. CHECK_COMPLETE stops re-evaluating once
       // isComplete is set, so an edit here would leave a wrong letter sitting in
-      // a still-gold "solved" grid. Navigation stays available.
-      const readOnly = state.isComplete
-      if (readOnly && (/^[a-zA-Z]$/.test(e.key) || e.key === 'Backspace')) {
-        e.preventDefault()
-        return
-      }
+      // a still-gold "solved" grid.
+      if (state.isComplete) return
+      setLetter(state.activeRow, state.activeCol, letter)
+      advance()
+    },
+    [state.isComplete, state.activeRow, state.activeCol, setLetter, advance]
+  )
 
+  const inputBackspace = useCallback(() => {
+    if (state.isComplete) return
+    const { activeRow, activeCol, direction } = state
+    if (state.cells[activeRow][activeCol].userLetter) {
+      clearLetter(activeRow, activeCol)
+    } else {
+      retreat()
+      clearLetter(
+        direction === 'across' ? activeRow : activeRow - 1 < 0 ? activeRow : activeRow - 1,
+        direction === 'across' ? (activeCol - 1 < 0 ? activeCol : activeCol - 1) : activeCol
+      )
+    }
+  }, [state, clearLetter, retreat])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
       if (/^[a-zA-Z]$/.test(e.key)) {
         e.preventDefault()
-        setLetter(activeRow, activeCol, e.key)
-        advance()
+        inputLetter(e.key)
         return
       }
 
       switch (e.key) {
         case 'Backspace':
           e.preventDefault()
-          if (state.cells[activeRow][activeCol].userLetter) {
-            clearLetter(activeRow, activeCol)
-          } else {
-            retreat()
-            clearLetter(
-              direction === 'across' ? activeRow : activeRow - 1 < 0 ? activeRow : activeRow - 1,
-              direction === 'across' ? (activeCol - 1 < 0 ? activeCol : activeCol - 1) : activeCol
-            )
-          }
+          inputBackspace()
           break
         case 'ArrowRight':
           e.preventDefault()
@@ -175,7 +193,7 @@ export default function SolverClient({ puzzle }: Props) {
           break
       }
     },
-    [state, setLetter, clearLetter, advance, retreat, nextWord, prevWord, move]
+    [inputLetter, inputBackspace, nextWord, prevWord, move]
   )
 
   const handleCellClick = useCallback(
@@ -211,6 +229,44 @@ export default function SolverClient({ puzzle }: Props) {
   const activeDownClue = getActiveClue(puzzle.cluesDown, state.activeRow, state.activeCol)
 
   const activeClue = state.direction === 'across' ? activeAcrossClue : activeDownClue
+
+  // The clue bar's arrows walk ONE continuous Across-then-Down sequence, the way
+  // NYT does, flipping direction at the boundary. That is deliberately not
+  // nextWord/prevWord: those are direction-scoped and wrap within a single list,
+  // which is right for desktop Tab but would trap you in Across on mobile.
+  const goClue = useCallback(
+    (delta: 1 | -1) => {
+      const seq = [
+        ...puzzle.cluesAcross.map(c => ({ clue: c, dir: 'across' as Direction })),
+        ...puzzle.cluesDown.map(c => ({ clue: c, dir: 'down' as Direction })),
+      ]
+      const i = seq.findIndex(e => e.dir === state.direction && e.clue.number === activeClue?.number)
+      if (i === -1) return
+      const next = seq[(i + delta + seq.length) % seq.length]
+      // setActive BEFORE setDirection: SET_ACTIVE toggles direction when the
+      // target cell equals the current one, which is reachable at the
+      // Across/Down boundary. Setting direction after makes it deterministic.
+      setActive(next.clue.cells[0][0], next.clue.cells[0][1])
+      setDirection(next.dir)
+    },
+    [puzzle.cluesAcross, puzzle.cluesDown, state.direction, activeClue, setActive, setDirection]
+  )
+
+  const handleSheetAcrossClick = useCallback(
+    (clue: Clue) => {
+      handleAcrossClueClick(clue)
+      setSheetOpen(false)
+    },
+    [handleAcrossClueClick]
+  )
+
+  const handleSheetDownClick = useCallback(
+    (clue: Clue) => {
+      handleDownClueClick(clue)
+      setSheetOpen(false)
+    },
+    [handleDownClueClick]
+  )
 
 
   return (
@@ -414,6 +470,39 @@ export default function SolverClient({ puzzle }: Props) {
           </div>
         </aside>
       </main>
+
+      {/* Mobile: clue bar + keyboard live outside <main> so they pin to the bottom
+          of the shell and the grid gets whatever height is left. Gated on JS so
+          their handlers never mount on desktop; the md:hidden inside each also
+          covers the first frame before useSyncExternalStore resolves. */}
+      {isMobile && (
+        <>
+          <ClueBar
+            clue={activeClue ?? null}
+            direction={state.direction}
+            onPrev={() => goClue(-1)}
+            onNext={() => goClue(1)}
+            onOpenList={() => setSheetOpen(true)}
+          />
+          <OnScreenKeyboard
+            onLetter={inputLetter}
+            onDelete={inputBackspace}
+            disabled={state.isComplete}
+          />
+        </>
+      )}
+
+      {isMobile && sheetOpen && (
+        <ClueSheet
+          cluesAcross={puzzle.cluesAcross}
+          cluesDown={puzzle.cluesDown}
+          activeAcrossNumber={state.direction === 'across' ? activeAcrossClue?.number ?? null : null}
+          activeDownNumber={state.direction === 'down' ? activeDownClue?.number ?? null : null}
+          onAcrossClick={handleSheetAcrossClick}
+          onDownClick={handleSheetDownClick}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
 
       {showModal && (
         <CompletionModal
