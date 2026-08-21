@@ -111,9 +111,15 @@ export default function CrosswordGrid({
               <div
                 key={key}
                 onPointerDown={e => {
-                  // preventDefault stops the synthesised mouse/focus sequence,
-                  // which would otherwise pull focus off the keyboard container.
+                  // preventDefault avoids the synthesised mouse sequence and the
+                  // text-selection/scroll behaviour that comes with it on touch.
+                  // But it ALSO suppresses the browser's default focus move to
+                  // the nearest focusable ancestor, which is how this container
+                  // used to regain focus after a click on a sidebar button — so
+                  // refocus explicitly, or physical-keyboard input silently dies
+                  // once anything else has been clicked.
                   e.preventDefault()
+                  containerRef.current?.focus()
                   onCellClick(r, c)
                 }}
                 className={`relative cursor-pointer flex items-center justify-center transition-colors duration-300 ${bgColor}`}
