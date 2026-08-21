@@ -327,3 +327,46 @@ Added `/api/extract-clues` route using `pdfjs-dist` v5 for server-side PDF text 
 - Project ref: `qfbvoiotkzwrnnnzazmk`
 - Storage bucket: `puzzle-sources` (public)
 - All schema + policies in `supabase/schema.sql`
+
+---
+
+## Session 9 — Supabase Pause Outage + Error Surfacing
+
+### The Outage
+Production (Vercel) showed "No puzzles yet" with an empty puzzle list.
+
+- **Root cause**: the Supabase project had been **paused**. Free-tier projects are paused after ~a week of inactivity, and the project hostname is torn down entirely — `qfbvoiotkzwrnnnzazmk.supabase.co` returned `NXDOMAIN` from both the local resolver and `1.1.1.1`, while `supabase.com` and `api.supabase.com` resolved normally. Last commit was 2026-05-05; the outage was noticed 2026-08-21.
+- **Not a Vercel problem, and not a data problem.** Local `npm run dev` was equally broken.
+- **Recovery**: unpausing restored DNS immediately, but the origin took ~170s to boot — during that window Cloudflare returned `521 Web server is down`. All 3 puzzles survived intact, all published, and the `anon` role's SELECT grant survived the pause (no need to re-run `schema.sql`).
+
+### Why It Looked Like an Empty Library
+`src/app/page.tsx` and `src/app/admin/(protected)/page.tsx` both destructured only `data` from the Supabase query and discarded `error`. A dead backend, missing env vars, and a genuinely empty table all rendered the identical "No puzzles yet" empty state — there was no way to tell them apart from the UI.
+
+**Fix**: both pages now destructure `error`, log it server-side (`console.error`), and render a distinct error state:
+- Landing page: generic "Couldn't load puzzles" panel — reassures the visitor that puzzles aren't lost, no raw error text shown publicly
+- Admin page: red panel that names the paused-project case explicitly and shows `error.message` in a `<code>` block
+
+Verified both paths: pointing `NEXT_PUBLIC_SUPABASE_URL` at a dead host renders the error state (and logs `TypeError: fetch failed`); real credentials render all three puzzles.
+
+### Removed Dead `revalidate` on the Landing Page
+`export const revalidate = 60` in `src/app/page.tsx` had **no effect** and was removed. `createClient()` calls `cookies()`, a Next.js Dynamic API that opts the route out of static rendering — `npm run build` confirms `/` is `ƒ (Dynamic)`, not ISR, both before and after removal. The landing page hits the database on every request; there is no stale cache to wait out during an outage. The line actively misled diagnosis during this session.
+
+### Solver Page: Outage vs. Missing Puzzle
+`src/app/puzzles/[id]/page.tsx` checked `error` but called `notFound()` for it, so a backend outage rendered "puzzle not found" — telling the visitor their puzzle was gone when the database was merely unreachable.
+
+Switched `.single()` to **`.maybeSingle()`**. `.single()` reports zero matching rows as an error (`PGRST116`), which collapses "no such puzzle" and "backend failed" into one indistinguishable case. `.maybeSingle()` returns `data: null` with no error for zero rows, so the two separate cleanly:
+
+```ts
+if (error) { /* log + render error panel */ }
+if (!data) notFound()
+```
+
+Verified all three paths: real puzzle → 200 solver; missing/unpublished id → 404; backend unreachable → 200 with the error panel (was a 404).
+
+### Production Confirmed Healthy
+`https://crosswords-gilt.vercel.app/` returns HTTP 200 and serves all three puzzles after the unpause. Vercel's env vars were correctly configured all along — the pause was the entire cause.
+
+### Still Open
+- `createClient()` uses non-null assertions (`!`) on both env vars. Missing env vars would throw at client construction rather than surface as a query error — a different failure mode from the one fixed here, and not currently handled.
+- The solver's outage state returns HTTP **200**, not 503. Fine for humans; slightly wrong for uptime monitoring or crawlers.
+- `npx eslint` is broken in this checkout: `eslint-config-next` is in `package.json` and `node_modules` but resolves to a missing `dist/core-web-vitals.js`. Pre-existing (fails on a clean tree); `npm run lint` needs a reinstall to work.

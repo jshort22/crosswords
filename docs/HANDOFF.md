@@ -17,7 +17,7 @@ A personal web app for Jack Short to take crossword puzzles he has made on paper
 | PDF parsing | `pdfjs-dist` v5 — server-side, no worker, in-thread via `globalThis.pdfjsWorker` |
 | AI | None |
 | Auth | Simple password gate on `/admin` — cookie-based, no Supabase Auth |
-| Deployment | Not yet deployed — running locally via `npm run dev` |
+| Deployment | Vercel, auto-deployed from `main` on GitHub (`jshort22/crosswords`). No `.vercel` dir locally — the link lives in the Vercel dashboard. |
 
 ---
 
@@ -45,7 +45,7 @@ SUPABASE_SERVICE_ROLE_KEY=<key>
 | Route | Description |
 |---|---|
 | `/` | Public puzzle list — shows all published puzzles as cards |
-| `/puzzles/[id]` | Full crossword solver (NYT-style) |
+| `/puzzles/[id]` | Full crossword solver (NYT-style). 404s on a missing/unpublished id; shows an error panel if the DB is unreachable. |
 | `/admin/login` | Password gate for admin (password: `rebus`) |
 | `/admin` | Admin puzzle list with draft/published status — requires auth |
 | `/admin/new` | 4-step wizard to create a new puzzle — requires auth |
@@ -300,13 +300,28 @@ Class-based dark mode — `dark` class on `<html>`. Tailwind's `dark:` variants 
 
 ---
 
+## Supabase Free-Tier Pausing (Important)
+
+**The Supabase project is paused automatically after ~a week of inactivity.** When paused, the project hostname is torn down completely — `qfbvoiotkzwrnnnzazmk.supabase.co` returns `NXDOMAIN`, not a friendly error. Both production and local dev break identically.
+
+**Symptom**: every page shows "Couldn't load puzzles" (before Session 9, it silently showed "No puzzles yet").
+
+**Diagnosis**:
+```bash
+nslookup qfbvoiotkzwrnnnzazmk.supabase.co   # NXDOMAIN => project is paused or deleted
+```
+Compare against `nslookup api.supabase.com`, which should always resolve — if that fails too, it is your network, not the project.
+
+**Fix**: unpause from the Supabase dashboard. DNS returns immediately, but the origin takes **2–3 minutes** to boot; during that window Cloudflare serves `521 Web server is down`. Data, RLS policies, and role GRANTs all survive a pause — there is no need to re-run `supabase/schema.sql`.
+
+---
+
 ## What Is NOT Built Yet
 
 - Logout button (admin session expires after 30 days or can be cleared via DevTools)
 - Mobile keyboard support (the grid captures keypresses via a focused `div` — works on desktop; mobile would need a hidden `<input>` to trigger the native keyboard)
 - Puzzle sharing / social features
 - Solver leaderboard / times
-- Any deployment / hosting setup
 
 ---
 
@@ -337,3 +352,8 @@ Class-based dark mode — `dark` class on `<html>`. Tailwind's `dark:` variants 
 | Fonts | Playfair Display via `next/font/google`. CSS variable `--font-playfair` → `--font-serif` in `@theme inline`. Use `font-serif` Tailwind class. |
 | difficultyColors | Exported from `src/lib/crossword/utils.ts` alongside `difficultyLabel`. Includes both light and `dark:` Tailwind classes. Import from utils, not defined per-component. |
 | Grid editor advance | Skips black cells in reading order (left-to-right, top-to-bottom). If no white cell exists beyond current position, cursor stays put. |
+| Supabase pausing | Free-tier project pauses after ~a week idle; hostname goes NXDOMAIN. Unpause from the dashboard; origin needs 2–3 min to boot. Data survives. |
+| Query error handling | Landing and admin pages surface Supabase `error` as a distinct error state. Do not go back to discarding it — a dead backend then looks identical to an empty library. |
+| Landing page caching | There is none. `createClient()` calls `cookies()`, forcing dynamic rendering — build confirms `/` is `ƒ (Dynamic)`. A `revalidate` export here would be dead code (one was removed in Session 9); the page hits the DB every request. |
+| `.maybeSingle()` on solver | The solver query uses `.maybeSingle()`, not `.single()`, so "no such puzzle" (`data: null`) stays distinct from "backend down" (`error`). `.single()` reports zero rows as `PGRST116` and would make an outage render as a 404. |
+| Vercel env vars | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be set in Vercel project settings. `.env.local` is gitignored and does not reach production. |

@@ -3,16 +3,18 @@ import { createClient } from '@/lib/supabase/server'
 import PuzzleCard from '@/components/PuzzleCard'
 import ThemeToggle from '@/components/ThemeToggle'
 
-export const revalidate = 60
-
 export default async function HomePage() {
   const supabase = await createClient()
 
-  const { data: puzzles } = await supabase
+  const { data: puzzles, error } = await supabase
     .from('puzzles')
     .select('*')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[HomePage] Failed to load puzzles:', error.message)
+  }
 
   return (
     <div className="min-h-screen">
@@ -34,7 +36,18 @@ export default async function HomePage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {!puzzles || puzzles.length === 0 ? (
+        {error ? (
+          <div className="text-center py-20">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Couldn&apos;t load puzzles
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
+              The puzzle database is unreachable. This is a server problem, not an empty library
+              &mdash; your puzzles are safe. Try again in a moment.
+            </p>
+          </div>
+        ) : !puzzles || puzzles.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🔤</div>
             <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No puzzles yet</h2>
