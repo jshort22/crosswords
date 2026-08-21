@@ -406,3 +406,50 @@ Playwright scripts live in the session scratchpad (not committed): `solve.mjs` (
 
 ### Still Open
 - `isRevealed` / `isChecked` remain on the `SolverCell` type and in every persisted progress record. Removing them would change the localStorage shape, so they were left alone.
+
+---
+
+## Session 10 — Mobile Solver + PWA
+
+The solver was **unusable on a phone**: keystrokes were captured on a focused `<div>`, which cannot raise a soft keyboard, and there was no `<input>`, `inputMode` or `contentEditable` anywhere in the solver. You could look at a grid but not enter a letter. NYT's mobile app was the UX reference.
+
+Scope decided up front: admin stays desktop-only, only the existing Reset + Show Incorrect aids, offline/service-worker deferred, save data stays in localStorage.
+
+### PWA shell
+Separate `viewport` export (Next 16 deprecates `metadata.viewport`) with `viewport-fit=cover`, dual light/dark `themeColor`, `appleWebApp`, and `formatDetection: { telephone: false }` — without the last one iOS turns clue numbers into `tel:` links. `manifest.ts` with `display: 'standalone'` and `scope: '/'`. Icons: `apple-icon.tsx` via `next/og` for the 180×180 iOS icon, plus 192/512/maskable PNGs rasterized with `sharp` (both already installed). Manifest icons need stable paths, so they can't point at Next's hashed icon route.
+
+Deliberately **omitted** `maximumScale`/`userScalable` (ignored by iOS since 10, an a11y regression on Android — `touch-action: manipulation` is the correct way to kill double-tap zoom), `interactiveWidget` (only governs the native keyboard), and `colorScheme` (the app manages `.dark` itself).
+
+### Grid sizing rewritten in CSS
+`cellSize` read `window.innerWidth` **during render** — a real hydration mismatch (server 40px vs client 23px for 15 cols at 390px) that never recomputed, since there was no resize or orientation listener anywhere in `src/`.
+
+Replaced with `aspect-ratio` + `1fr` tracks + `cqw` fonts. Net JS deleted: no `ResizeObserver`, no listeners, and the mismatch is impossible by construction rather than patched.
+
+**Fitting both axes took a second pass** (anticipated as risk #1 in the plan). `width: 100%` + `max-height: 100%` clamps the height *without recomputing the width*, so a 21×21 on a short viewport came out with 42.9×33.9 cells. Fixed by resolving the width against the parent's height: `min(100cqw, calc(100cqh * cols/rows), cols*44px)`, with the parent given `container-type: size`. Verified square and fitting at 15×15 and 21×21, desktop and iPhone, including a deliberately short viewport.
+
+Cell borders became `gap-px` over the container background — `1fr` tracks land on fractional pixels (21 cols at 374px ≈ 17.8px) where per-cell borders render hairline-uneven. The gold celebration now recolours that container background.
+
+### Custom on-screen keyboard
+Rather than a hidden `<input>`. Keeps the layout height fixed and known, which is what lets the grid size itself reliably, and avoids fighting iOS over keyboard timing and viewport resizing.
+
+`inputLetter`/`inputBackspace` were extracted out of `handleKeyDown` so both keyboards reach the **same** implementation — forking them would fork the `isComplete` read-only guard, and the day one side changed, a solved gold grid would become editable on the other.
+
+### Mobile clue UX
+`ClueBar` above the keyboard with ‹ › arrows walking one continuous Across→Down sequence (not `nextWord`/`prevWord`, which are direction-scoped and would trap you in Across). `ClueSheet` bottom sheet reuses `CluePanel` unchanged — its scroll-to-active finally works there because the sheet gives the `<ol>` a bounded height, which the deleted `md:hidden` section never did. `max-md:py-3` gets clue rows to 44px on phones only.
+
+### Branching rule
+**JS gates mounting, CSS gates visibility.** `useIsMobile` uses `useSyncExternalStore` with a server snapshot, so no hydration mismatch and no `useEffect` flag dance. Mobile subtrees also keep `md:hidden` for the frame before JS resolves. Both are needed. CSS-only branching is exactly what left the old mobile clue section clipped and unreachable.
+
+### Bug caught by the regression suite
+Adding `preventDefault()` to the cell `pointerdown` also suppressed the browser's default focus move to the focusable ancestor — which is how the grid container used to regain focus. On desktop, after clicking Reset or Show Incorrect, clicking a cell no longer restored focus, so **typing silently stopped working** with no recovery short of a reload. The Show-Incorrect-then-solve regression stalled with the wrong letters still in place, which is how it surfaced. Fixed with an explicit `containerRef.current?.focus()`.
+
+This is the argument for keeping those harnesses: the bug was invisible in screenshots and in the happy-path solve.
+
+### Separate commit
+Backspace at a word's first cell cleared the *preceding black cell's* record — `retreat()` used `prevCellInWord` while the `clearLetter` beside it used naive `-1` arithmetic guarding only the array bound. No visible effect (black cells never render `userLetter`), but the paths are meant to agree, and they now share code.
+
+### Verification
+Desktop suite (clean solve, Show Incorrect → solve, error banner, mid-solve reload, revisit, reset → re-solve) all pass unchanged. Mobile suite on an emulated iPhone 13: types via the on-screen keyboard, arrows cross the Across/Down boundary, sheet opens with 44px rows, full solve gives gold + trophy + solved record, and a solved grid ignores the keyboard **even when the `disabled` attribute is bypassed with a forced `pointerdown`** — the guard holds in the handler, not just the DOM.
+
+### Still Open — needs a real device
+Emulation cannot confirm: that iOS honours the Next-generated `/apple-icon?<hash>` route for Add to Home Screen (fallback is a static `src/app/apple-icon.png`); that it launches standalone (Next emits `mobile-web-app-capable`, not the legacy `apple-` prefixed tag); safe-area clearance for the Dynamic Island and home indicator; and whether 21×21 at ~17px cells is comfortable to tap.
