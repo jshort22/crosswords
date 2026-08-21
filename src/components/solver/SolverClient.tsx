@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import Link from 'next/link'
 import type { CrosswordPuzzle, Clue, SolverState, Direction } from '@/lib/crossword/types'
 import { useCrosswordSolver } from '@/hooks/useCrosswordSolver'
-import { getActiveClue, difficultyLabel, difficultyColors, formatTime } from '@/lib/crossword/utils'
+import { getActiveClue, difficultyLabel, difficultyColors, formatTime, prevCellInWord } from '@/lib/crossword/utils'
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
@@ -142,13 +142,16 @@ export default function SolverClient({ puzzle }: Props) {
     if (state.cells[activeRow][activeCol].userLetter) {
       clearLetter(activeRow, activeCol)
     } else {
+      // Both the cursor move and the clear must agree on the target. Deriving
+      // it from prevCellInWord (the same helper RETREAT uses) keeps them in
+      // step; hand-rolled -1 arithmetic here only guarded the array bound, not
+      // the black-square boundary, so at a word's first cell it cleared the
+      // preceding BLACK cell's record while the cursor correctly stayed put.
+      const [prevRow, prevCol] = prevCellInWord(puzzle.grid, activeRow, activeCol, direction)
       retreat()
-      clearLetter(
-        direction === 'across' ? activeRow : activeRow - 1 < 0 ? activeRow : activeRow - 1,
-        direction === 'across' ? (activeCol - 1 < 0 ? activeCol : activeCol - 1) : activeCol
-      )
+      clearLetter(prevRow, prevCol)
     }
-  }, [state, clearLetter, retreat])
+  }, [state, clearLetter, retreat, puzzle.grid])
 
   // Kept in SolverClient rather than pushed into SolverActions: this exact
   // cluster is what 4b1c6e3 fixed, and it depends on state owned here.
