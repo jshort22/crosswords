@@ -7,10 +7,14 @@ export const revalidate = 0
 export default async function AdminPage() {
   const supabase = await createClient()
 
-  const { data: puzzles } = await supabase
+  const { data: puzzles, error } = await supabase
     .from('puzzles')
     .select('id, title, difficulty, grid_size_rows, grid_size_cols, is_published, created_at')
     .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[AdminPage] Failed to load puzzles:', error.message)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -35,7 +39,18 @@ export default async function AdminPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {!puzzles || puzzles.length === 0 ? (
+        {error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-center">
+            <p className="font-semibold text-red-800 mb-1">Couldn&apos;t load puzzles</p>
+            <p className="text-sm text-red-700 mb-3">
+              The database query failed &mdash; this is not an empty library. Check that the Supabase
+              project is running and not paused.
+            </p>
+            <code className="inline-block text-xs text-red-900/70 bg-red-100 rounded px-2 py-1">
+              {error.message}
+            </code>
+          </div>
+        ) : !puzzles || puzzles.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-500 mb-4">No puzzles yet.</p>
             <Link
