@@ -19,7 +19,6 @@ type Action =
   | { type: 'RESTORE'; cells: SolverState['cells']; startTime: number | null }
   | { type: 'RESET' }
   | { type: 'SHOW_INCORRECT' }
-  | { type: 'FILL_FOR_TEST' }
   | { type: 'RESTORE_SOLVED' }
 
 function initState(puzzle: CrosswordPuzzle): SolverState {
@@ -162,31 +161,6 @@ function reducer(state: SolverState, action: Action, puzzle: CrosswordPuzzle): S
       )
       return { ...state, cells: solvedCells, isComplete: true, hasErrors: false }
     }
-    case 'FILL_FOR_TEST': {
-      // Collect all white cells in grid order
-      const whiteCells: [number, number][] = []
-      for (let r = 0; r < puzzle.rows; r++) {
-        for (let c = 0; c < puzzle.cols; c++) {
-          if (puzzle.grid[r][c].type === 'white') whiteCells.push([r, c])
-        }
-      }
-      const skip = whiteCells[whiteCells.length - 1]
-      const filledCells = state.cells.map((row, r) =>
-        row.map((cell, c) => {
-          if (puzzle.grid[r][c].type === 'black') return cell
-          if (r === skip[0] && c === skip[1]) return { ...cell, userLetter: '' }
-          return { ...cell, userLetter: puzzle.grid[r][c].letter }
-        })
-      )
-      return {
-        ...state,
-        cells: filledCells,
-        hasErrors: false,
-        startTime: state.startTime ?? Date.now(),
-        activeRow: skip[0],
-        activeCol: skip[1],
-      }
-    }
     case 'CHECK_COMPLETE': {
       const allFilled = state.cells.every((row, r) =>
         row.every((cell, c) =>
@@ -252,7 +226,6 @@ export function useCrosswordSolver(puzzle: CrosswordPuzzle) {
   }, [])
   const reset = useCallback(() => dispatch({ type: 'RESET' }), [])
   const showIncorrect = useCallback(() => dispatch({ type: 'SHOW_INCORRECT' }), [])
-  const fillForTest = useCallback(() => dispatch({ type: 'FILL_FOR_TEST' }), [])
   const restoreSolved = useCallback(() => dispatch({ type: 'RESTORE_SOLVED' }), [])
 
   // Check completion after every letter change
@@ -283,7 +256,6 @@ export function useCrosswordSolver(puzzle: CrosswordPuzzle) {
     restore,
     reset,
     showIncorrect,
-    fillForTest,
     restoreSolved,
   }
 }

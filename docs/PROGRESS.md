@@ -370,3 +370,39 @@ Verified all three paths: real puzzle → 200 solver; missing/unpublished id →
 - `createClient()` uses non-null assertions (`!`) on both env vars. Missing env vars would throw at client construction rather than surface as a query error — a different failure mode from the one fixed here, and not currently handled.
 - The solver's outage state returns HTTP **200**, not 503. Fine for humans; slightly wrong for uptime monitoring or crawlers.
 - `npx eslint` is broken in this checkout: `eslint-config-next` is in `package.json` and `node_modules` but resolves to a missing `dist/core-web-vitals.js`. Pre-existing (fails on a clean tree); `npm run lint` needs a reinstall to work.
+
+---
+
+## Session 9b — Completion Flow Audit
+
+Audited the finish-the-puzzle reward path (gold sweep, trophy modal, timer stop, solved record), driving the real solver in headless Chromium against live puzzle data rather than reasoning from the source alone.
+
+### First: There Is No Reveal Feature
+`isRevealed` and `isChecked` exist on `SolverCell` and are initialised to `false`, but nothing ever writes them. The left panel has exactly two buttons — **Reset Puzzle** and **Show Incorrect** — and Show Incorrect only marks wrong letters red; it never fills anything in.
+
+### The Worry: Does Checking Answers Spoil the Reward?
+No. Verified by filling 20 cells wrong, running Show Incorrect (20 red cells confirmed), then correcting everything: gold 187/187, modal, trophy, zero red remaining, timer stopped, solved record written — byte-for-byte the same outcome as a clean solve.
+
+This holds structurally, not by luck: `CHECK_COMPLETE` compares `userLetter` against the solution and never reads the `isCorrect` flags that Show Incorrect writes, and `SET_LETTER` resets a cell's flag to `null`. There is no cheat-detection or penalty logic anywhere in the reducer.
+
+Also verified working: error banner appears when the grid is full but wrong (without prematurely going gold), clears on fix, then celebrates; mid-solve reload restores letters and timer; revisiting a solved puzzle shows gold with no replayed animation; reset clears everything and re-solving awards gold again.
+
+### Bugs Found and Fixed
+
+**1. A completed grid was still editable.** Nothing blocked keyboard input after solving. Typing changed a letter while the grid stayed gold and the solved record stayed intact, so a "solved" grid could display a wrong letter. `CHECK_COMPLETE` short-circuits on `if (!state.isComplete)`, so it never re-evaluated. Fixed by ignoring letter keys and Backspace when `state.isComplete`; navigation still works. (Confirmed before: `letter_changed=true`; after: `letter_changed=false`.)
+
+**2. Opening a solved puzzle wrote a blank progress record.** Every visit to a solved puzzle wrote a full empty grid with `elapsed: 0` to `crossword-progress-{id}` — roughly 30KB for a 15×15, more for a 21×21.
+
+Root cause: `restoredRef.current = true` was set **synchronously** inside the `useLayoutEffect`, but `restoreSolved()` dispatches asynchronously. The save effect therefore passed its `restoredRef` guard and ran once against the still-empty initial state before `isComplete` landed. On the in-progress path this self-corrected (the next render re-ran the save with real cells), but on the solved path `isComplete` then blocked every subsequent save, so the junk was never overwritten.
+
+Fixed by replacing the ref with `hasRestored` **state**, which batches with the restore dispatches — so the first render where the gate is open already has the restored cells. (Confirmed: `STALE_PROGRESS_WRITTEN` went from a 30KB blob to `null`.)
+
+**3. Modal timeout was never cleared.** The celebration effect returned a cleanup function from *inside* the `setTimeout` callback, where it is discarded. `modalTimer` leaked if the component unmounted during the 600ms gap between gold and modal. Now both timers are cleared in the effect's real cleanup.
+
+**4. Removed dead `FILL_FOR_TEST` code.** The test button was removed from the UI in commit `fc7baf4`, but the action type, reducer case, `fillForTest` callback, hook export, and `SolverClient` destructure all survived. HANDOFF.md still documented it as a live button. All removed.
+
+### Test Harness
+Playwright scripts live in the session scratchpad (not committed): `solve.mjs` (clean solve / show-incorrect-then-solve), `revisit.mjs` (restore, revisit, reset, re-solve), `banner.mjs` (error banner path). They drive the real dev server and assert on gold cell count, modal, trophy, timer freeze, and localStorage keys. Worth rebuilding as committed tests if this area changes again.
+
+### Still Open
+- `isRevealed` / `isChecked` remain on the `SolverCell` type and in every persisted progress record. Removing them would change the localStorage shape, so they were left alone.

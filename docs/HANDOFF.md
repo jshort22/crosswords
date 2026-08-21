@@ -162,7 +162,7 @@ The solver is a full-viewport `h-screen` layout (not `min-h-screen`) so nothing 
 ```
 
 - **Header**: 3-column `flex` layout — widths match the main panels exactly so the title/difficulty badge is centred over the puzzle grid, not the full page.
-- **Left panel** (desktop only, `bg-gray-100`, `w-40`): Reset Puzzle and Show Incorrect buttons (white with shadow, `bg-white border shadow-sm`), then Fill (Test) at the bottom of the list (muted gray). First two have inline orange confirmation.
+- **Left panel** (desktop only, `bg-gray-100`, `w-40`): Reset Puzzle and Show Incorrect buttons (white with shadow, `bg-white border shadow-sm`). Both have inline orange confirmation. There is no reveal-answer feature.
 - **Grid column** (`flex-1`): scrollable grid area (grid + error banner) + active clue bar pinned below (outside scroll container, always visible)
 - **Right clue panels** (`w-64/72`): Across and Down, each independently scrollable
 
@@ -185,9 +185,10 @@ The solver is a full-viewport `h-screen` layout (not `min-h-screen`) so nothing 
 - **Timer**: starts immediately when the puzzle page loads. Shown in header (right column) with a toggle switch. Toggle controls visibility only — timer always runs in the background. Timer is a simple incrementer (`setElapsed(e => e + 1)` every second) — does not depend on `state.startTime`. On revisit, `elapsed` is restored from localStorage via `useLayoutEffect` before the first paint; the incrementer continues from that value.
 - **Reset Puzzle** button (left panel): clears all entered letters and incorrect markers, resets timer to 0 and removes the solve record; requires inline confirmation
 - **Show Incorrect** button (left panel): highlights wrong letters red, leaves blanks untouched; requires inline confirmation. Red letters are stored in `isCorrect` field of `SolverCell`.
-- **Fill (Test)** button (left panel): fills all white cells with correct solution letters except the last one, and moves the cursor there — for testing the completion flow
 - On completion: gold sweep animation (2.2s, deliberate ease-in) across grid → borders turn gold → modal with time + difficulty
 - **Revisiting a solved puzzle**: grid loads fully filled with gold borders and the solve time displayed. No animation or modal on revisit. Reset clears the solved state entirely.
+- **A completed grid is read-only**: letter keys and Backspace are ignored once `isComplete` is set. Navigation (arrows, Tab, clicking) still works. Without this, an edit would leave a wrong letter in a still-gold grid, because `CHECK_COMPLETE` stops re-evaluating after completion.
+- **Show Incorrect does not affect completion.** `CHECK_COMPLETE` compares `userLetter` against the solution only; it never reads the `isCorrect` flags Show Incorrect writes, and `SET_LETTER` resets a cell's flag to `null`. Checking your work carries no penalty.
 
 ---
 
@@ -229,7 +230,6 @@ The reducer handles these actions:
 | `RESET` | Clears all userLetters and isCorrect state; resets startTime to now (timer restarts immediately) |
 | `SHOW_INCORRECT` | Marks each filled cell isCorrect true/false by comparing to solution |
 | `CHECK_COMPLETE` | Checks if all cells are correctly filled; sets `isComplete` if all correct, sets `hasErrors: true` if all filled but wrong |
-| `FILL_FOR_TEST` | Fills all white cells with correct letters except the last one; moves cursor there |
 
 `SolverState` includes `hasErrors: boolean` — set true when the grid is fully filled but incorrect; cleared on any edit or reset.
 
@@ -344,6 +344,9 @@ Compare against `nslookup api.supabase.com`, which should always resolve — if 
 | Solver layout | Uses `h-screen overflow-hidden` (not `min-h-screen`) so the page never scrolls — all scrolling happens inside the grid column and clue panels |
 | Timer | Simple incrementer: `setElapsed(e => e + 1)` every second. Does NOT use `state.startTime` for tick calculation. Starts from `elapsed` restored by `useLayoutEffect`. RESET calls `setElapsed(0)`. Toggle controls display only. |
 | Word auto-advance | At end of word, ADVANCE jumps to first cell of next word in clue order (wraps). Tab/Shift+Tab dispatch NEXT_WORD/PREV_WORD for explicit word skipping. |
+| Completed grid is read-only | Letters/Backspace ignored when `state.isComplete`. `CHECK_COMPLETE` short-circuits once complete, so edits would otherwise desync the gold state from the letters shown. |
+| Restore gating | The save effect is gated on `hasRestored` **state**, not a ref. A ref flips synchronously and lets the save effect fire against empty initial state — which wrote a blank progress record every time a solved puzzle was opened. State batches with the restore dispatches. |
+| No reveal feature | `isRevealed` / `isChecked` exist on `SolverCell` but are never written. Show Incorrect is the only solving aid. |
 | Grid thumbnail | SVG rendered inline in PuzzleCard from the `grid` JSONB — no image storage, always accurate. Container has `rounded-lg overflow-hidden` to clip corners. |
 | Author field | Removed from admin UI and save payloads. Column still exists in the database but is always `null` for new puzzles. Public display code checks for author before rendering, so nothing breaks. |
 | PuzzleCardActions | Split out of PuzzleCard as a client component solely to read `localStorage` for solved state. PuzzleCard itself remains a server component. |

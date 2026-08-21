@@ -34,7 +34,7 @@ function loadProgress(puzzleId: string): { cells: SolverState['cells']; elapsed:
 }
 
 export default function SolverClient({ puzzle }: Props) {
-  const { state, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, fillForTest, restoreSolved } =
+  const { state, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
     useCrosswordSolver(puzzle)
 
   const [showModal, setShowModal] = useState(false)
@@ -43,7 +43,10 @@ export default function SolverClient({ puzzle }: Props) {
   const [celebrationPhase, setCelebrationPhase] = useState<'idle' | 'sweep' | 'gold'>('idle')
   const [elapsed, setElapsed] = useState(0)
   const [timerVisible, setTimerVisible] = useState(true)
-  const restoredRef = useRef(false)
+  // State, not a ref: it batches with the restore dispatches below, so the first
+  // render where hasRestored is true already has the restored cells/elapsed. A ref
+  // would flip synchronously and let the save effect fire against empty state.
+  const [hasRestored, setHasRestored] = useState(false)
   const restoredAsSolvedRef = useRef(false)
 
   // Restore saved progress on mount — useLayoutEffect runs before paint so the
@@ -58,7 +61,7 @@ export default function SolverClient({ puzzle }: Props) {
         restoreSolved()
         setElapsed(savedElapsed)
         setCelebrationPhase('gold')
-        restoredRef.current = true
+        setHasRestored(true)
         return
       }
     } catch {}
@@ -68,16 +71,16 @@ export default function SolverClient({ puzzle }: Props) {
       restore(saved.cells, Date.now() - saved.elapsed * 1000)
       setElapsed(saved.elapsed)
     }
-    restoredRef.current = true
+    setHasRestored(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Save progress whenever cells or elapsed change (after restore runs)
   useEffect(() => {
-    if (!restoredRef.current) return
+    if (!hasRestored) return
     if (state.isComplete) return
     saveProgress(puzzle.id, state.cells, elapsed)
-  }, [state.cells, elapsed, state.isComplete, puzzle.id])
+  }, [hasRestored, state.cells, elapsed, state.isComplete, puzzle.id])
 
   // Timer — simple incrementer so there's no dependency on state.startTime reconstruction
   useEffect(() => {
@@ -97,18 +100,30 @@ export default function SolverClient({ puzzle }: Props) {
     try { localStorage.setItem(`crossword-solved-${puzzle.id}`, JSON.stringify({ elapsed: finalElapsed })) } catch {}
 
     setCelebrationPhase('sweep')
+    let modalTimer: ReturnType<typeof setTimeout> | undefined
     const sweepTimer = setTimeout(() => {
       setCelebrationPhase('gold')
-      const modalTimer = setTimeout(() => setShowModal(true), 600)
-      return () => clearTimeout(modalTimer)
+      modalTimer = setTimeout(() => setShowModal(true), 600)
     }, 2200)
-    return () => clearTimeout(sweepTimer)
+    return () => {
+      clearTimeout(sweepTimer)
+      clearTimeout(modalTimer)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isComplete])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const { activeRow, activeCol, direction } = state
+
+      // A completed grid is read-only. CHECK_COMPLETE stops re-evaluating once
+      // isComplete is set, so an edit here would leave a wrong letter sitting in
+      // a still-gold "solved" grid. Navigation stays available.
+      const readOnly = state.isComplete
+      if (readOnly && (/^[a-zA-Z]$/.test(e.key) || e.key === 'Backspace')) {
+        e.preventDefault()
+        return
+      }
 
       if (/^[a-zA-Z]$/.test(e.key)) {
         e.preventDefault()
