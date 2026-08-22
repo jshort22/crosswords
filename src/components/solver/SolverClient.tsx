@@ -39,7 +39,7 @@ function loadProgress(puzzleId: string): { cells: SolverState['cells']; elapsed:
 }
 
 export default function SolverClient({ puzzle }: Props) {
-  const { state, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
+  const { state, wordCells, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
     useCrosswordSolver(puzzle)
 
   const [showModal, setShowModal] = useState(false)
@@ -130,10 +130,15 @@ export default function SolverClient({ puzzle }: Props) {
       // isComplete is set, so an edit here would leave a wrong letter sitting in
       // a still-gold "solved" grid.
       if (state.isComplete) return
+      // Whether auto-advance should skip filled cells depends on the word as it
+      // was BEFORE this keystroke, which only this side can still see: once the
+      // letter is written, "just completed" and "being retyped" look identical
+      // to the reducer.
+      const wordWasComplete = wordCells.every(([r, c]) => state.cells[r][c].userLetter !== '')
       setLetter(state.activeRow, state.activeCol, letter)
-      advance()
+      advance(!wordWasComplete)
     },
-    [state.isComplete, state.activeRow, state.activeCol, setLetter, advance]
+    [state.isComplete, state.activeRow, state.activeCol, state.cells, wordCells, setLetter, advance]
   )
 
   const inputBackspace = useCallback(() => {
