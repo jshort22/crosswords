@@ -1302,3 +1302,27 @@ states are clean. Fixed by switching the text on hover as well.
 The grep that found it matters too — `text-accent\b` also matches
 `text-accent-soft-ink`, because `-` is a word boundary, so the obvious check
 reports false positives and hides real ones. Use `text-accent([^-a-z]|$)`.
+
+### Session 20c — Theme links verified end to end
+The `theme_set` migration was applied to `qfbvoiotkzwrnnnzazmk`; all three
+puzzles defaulted to `{}` as intended.
+
+`theme-links.mjs` failed once on first run, and it was **the harness, not the
+product** — the exact trap this README warns about. It clicked the marquee's
+first cell directly, but on a fresh load the cursor already sits on the first
+white cell, which in most grids *is* 1-Across's first cell. Clicking the
+already-active cell toggles direction, so the active answer became 1 **Down**,
+which is not the marquee, and nothing lit. The themers passed because their first
+cells are not the grid's first cell. Fixed with the scratch-cell-then-arrow
+technique the other harnesses use; 11/11 after.
+
+Worth stating plainly: three separate harnesses have now been written in this
+project that clicked straight at a target cell and got a silently wrong result.
+**Never click straight at a cell.**
+
+`theme-admin.mjs` added — the round trip through the real UI: 80 radios and 80
+checkboxes render, the summary updates live, making a themer the marquee drops it
+from the themer list, only one marquee can ever be checked, Save persists to the
+DB, reopening the editor restores the controls, and the solver highlights it.
+14/14. Both harnesses restore the puzzle's original `theme_set` when they finish,
+so they are safe to re-run against the live database.

@@ -77,10 +77,27 @@ try {
     await page.waitForSelector(SEL)
     return page
   }
-  // A fresh page per click: clicking the already-active cell toggles direction.
+  // Never click straight at the target. Clicking the cell that is ALREADY active
+  // toggles direction, and on a fresh load the cursor sits on the first white
+  // cell — which is 1-Across's first cell, i.e. exactly the marquee in most
+  // grids. That silently made the active answer 1 DOWN and lit nothing. So:
+  // click a scratch cell first, then the target, then nudge with the arrows,
+  // which forces a known direction (MOVE derives it from the delta).
+  const scratch = (() => {
+    const used = new Set([MARQ, ...THEMERS].flatMap(w => w.cells.map(([r, c]) => `${r},${c}`)))
+    for (let r = grid.length - 1; r >= 0; r--)
+      for (let c = 0; c < cols; c++)
+        if (white(r, c) && !used.has(`${r},${c}`)) return [r, c]
+    return null
+  })()
   const linkedAt = async cell => {
     const page = await fresh()
+    if (scratch) await page.locator(SEL).nth(idx(...scratch)).click()
     await page.locator(SEL).nth(idx(...cell)).click()
+    // Force ACROSS regardless of what the click left behind.
+    const [r, c] = cell
+    if (white(r, c + 1)) { await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowLeft') }
+    else { await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowRight') }
     await page.waitForTimeout(120)
     const keys = await page.evaluate(s => [...document.querySelectorAll(s)]
       .map((d, i) => d.hasAttribute('data-linked') ? i : -1).filter(i => i >= 0), SEL)
@@ -110,7 +127,9 @@ try {
 
   console.log('\n--- the active word wins over a linked cell ---')
   const page = await fresh()
+  if (scratch) await page.locator(SEL).nth(idx(...scratch)).click()
   await page.locator(SEL).nth(idx(...MARQ.cells[0])).click()
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowLeft')
   await page.waitForTimeout(120)
   const both = await page.evaluate(s => [...document.querySelectorAll(s)]
     .filter(d => d.hasAttribute('data-linked') && d.hasAttribute('data-in-word')).length, SEL)

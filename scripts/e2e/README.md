@@ -58,7 +58,7 @@ curl -sS "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/puzzles?select=clues_across,clues_do
       json.dump(out, open('/tmp/allclues.json','w'))"
 ```
 
-`admin-cluewarn.mjs` needs the admin password; it is hardcoded as `rebus`.
+`admin-cluewarn.mjs` and `theme-admin.mjs` need the admin password; it is hardcoded as `rebus`.
 
 `skipfilled.mjs` derives its own test words from `/tmp/grid.json`, so it works
 on any puzzle — pass the id as the only argument and fetch the matching grid.
@@ -97,6 +97,7 @@ Three tests "failed" against correct code before that was in place.
 | `a11y.mjs` | axe-core against WCAG 2.2 A/AA across 11 states — both themes, both viewports, and the overlay states (... menu, clue sheet, completion modal) that a page-load scan never sees. Should print zero violations |
 | `target-size.mjs [id]` | WCAG 2.2 SC 2.5.8: every interactive target measured against the 24x24px minimum, plus the grid cell size reported separately (it relies on the *essential* exception) |
 | `theme-links.mjs [id]` | Theme links end to end: the marquee lights every theme answer, a theme answer lights the marquee and **not** its siblings, an unrelated answer lights nothing, no cell is both linked and in-word, and an empty theme set links nothing. **Self-seeding** — writes a theme set over the REST API and restores the original afterwards, so it needs `set -a && source .env.local && set +a` and the `theme_set` column |
+| `theme-admin.mjs` | The admin round-trip for theme links: the radios/checkboxes render, the summary updates, the two roles are mutually exclusive, only one marquee can be checked, it saves to the DB, the editor reflects it on reload, and the solver highlights it. Logs in with the hardcoded password and **restores the puzzle's original `theme_set` afterwards**. Needs `set -a && source .env.local && set +a` |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script
