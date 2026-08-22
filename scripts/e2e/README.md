@@ -40,6 +40,21 @@ curl -sS "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/puzzles?select=grid&id=eq.<PUZZLE_ID
 **Puzzle ids are hardcoded** in most scripts and will be wrong if the database
 is reseeded. Grep for `const ID =` and update.
 
+`threshold.mjs` takes a JSON array of every clue string in the library. Build it
+with:
+
+```bash
+cd <repo> && set -a && source .env.local && set +a
+curl -sS "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/puzzles?select=clues_across,clues_down" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); \
+      out=[c for p in d for k in ('clues_across','clues_down') for c in p[k].values()]; \
+      json.dump(out, open('/tmp/allclues.json','w'))"
+```
+
+`admin-cluewarn.mjs` needs the admin password; it is hardcoded as `rebus`.
+
 ## The scripts
 
 | Script | What it checks |
@@ -52,6 +67,9 @@ is reseeded. Grep for `const ID =` and update.
 | `stability.mjs <id> <label> <w> <h>` | Walks all clues recording every distinct grid size and clue-bar height. Both sets must have exactly one entry, or the grid is resizing between clues |
 | `cluebar.mjs <id> <label>` | Clue-bar height range across every clue, how many need internal scrolling, and that the grid still fits |
 | `final-shots.mjs <id>` | Portrait / landscape / desktop layout check — which chrome is visible where, and screenshots to `/tmp/final-*.png` |
+| `linecount.mjs <id> <label> <w> <h>` | Histogram of how many rendered lines each clue takes in the clue bar, and the text of any that exceed three |
+| `threshold.mjs <all-clues.json>` | Sweeps 320/375/390/430px and reports, per width, the longest clue that fits three lines and the shortest that spills — this is where `CLUE_THREE_LINE_LIMIT` comes from |
+| `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script
 

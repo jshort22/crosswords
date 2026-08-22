@@ -453,3 +453,85 @@ Desktop suite (clean solve, Show Incorrect → solve, error banner, mid-solve re
 
 ### Still Open — needs a real device
 Emulation cannot confirm: that iOS honours the Next-generated `/apple-icon?<hash>` route for Add to Home Screen (fallback is a static `src/app/apple-icon.png`); that it launches standalone (Next emits `mobile-web-app-capable`, not the legacy `apple-` prefixed tag); safe-area clearance for the Dynamic Island and home indicator; and whether 21×21 at ~17px cells is comfortable to tap.
+
+---
+
+## Session 11 — Clue Bar Sized for Three Lines + Admin Length Warning
+
+### The jump was on production, not on the branch
+
+Reported as "the puzzle still jumps a little when we go from two to three
+lines." It does — on `main`, which is what is deployed. There the bar carries no
+height at all and the text is capped at `max-h-[4.5rem]` (72px, about 3.7 line
+boxes), so the bar grows 1 → 2 → 3 lines and the grid rescales under it every
+time. The branch fix (`d575938`) had already pinned the bar to 56px; it just
+hasn't been merged. Verified with `stability.mjs`: one bar height, one grid size,
+at 320/375/390/430px.
+
+### Measured how many lines clues actually need
+
+Before widening anything, `linecount.mjs` walked all 298 clues in the library at
+four viewport widths, reading the text span's `scrollHeight` over its computed
+line box. Max lines needed:
+
+| Width | Max lines | Clues over three lines |
+|---|---|---|
+| 320px (SE 1st gen) | 5 | 7 |
+| 375px (SE 2/3, 13 mini) | 4 | 3 |
+| 390px (iPhone 12–16) | 4 | 1 |
+| 430px (Pro Max) | 3 | 0 |
+
+So **three is the right number, four is not worth it**: on any phone from the
+last several years, three lines shows the entire clue for 295–298 of 298. A
+fourth line would buy 1–3 clues and cost another 20px of grid on every puzzle.
+
+### Bar sized for exactly three lines
+
+`h-14` → `h-[4.75rem]` (76px = 3 × 19.25px line box + 16px of `py-2`), and the
+text cap `max-h-[2.75em]` → `max-h-[4.125em]`. The cap stays in **em** so it
+lands on a whole line box; a px cap halves the fourth line and reads as broken
+instead of scrollable.
+
+Cost is 20px of bar. It only comes out of the grid where the grid is
+height-constrained: at 390px the grid stayed 374px (width-bound, so free), at
+375px it went 359 → 344px, at 320px 284 → 264px. Clues needing internal scroll
+dropped from 11 → 2 at 390px, 13 → 6 at 375px, and 8 → 0 at 430px.
+
+### Admin warns on clues too long for three lines
+
+Rather than a hard cap. `threshold.mjs` sweeps each width and reports the
+crossover band — the longest real clue that still fits three lines versus the
+shortest that spills — plus a synthetic prose sweep:
+
+| Width | Fits 3 lines up to | Spills from |
+|---|---|---|
+| 320px | 86 chars | 93 chars |
+| 375px | 101 chars | 114 chars |
+| 390px | 117 chars | 132 chars |
+| 430px | 132 chars | — |
+
+`CLUE_THREE_LINE_LIMIT = 100` in `utils.ts` — the round number sitting safely
+below the 375px band, so anything under it is safe on every phone still in
+common use. The clue editor flags each offending row (amber border + a line
+saying the count and that it will scroll on a narrow phone, "Still fine to
+use") and tallies them beside the Across/Down heading, because a warning on one
+row out of 140 is easy to scroll straight past.
+
+**Deliberately no `maxLength`.** A character count can only approximate wrapping
+— a line of "l"s is far narrower than a line of "W"s — so it will sometimes warn
+on a clue that would have fit. That is the right way round for an advisory, and
+a clue that does spill is not broken: it scrolls in the bar and is in full in the
+clue sheet. Both the wizard and the edit page get this from the one component.
+
+### Verification
+Full suite re-run green: `stability.mjs` (one bar height 76px, one grid size, at
+320/375/390/430 on both a 15×15 and the 21×21), `cluebar.mjs`, `mobile-solve.mjs`,
+`solve.mjs` plain + check, `revisit.mjs`, `banner.mjs` — no console errors.
+`admin-cluewarn.mjs` (new) confirms the boundary is exact at 100, that trailing
+whitespace does not trip it, that the tally tracks live, and that a 400-character
+clue is accepted with no `maxlength` attribute. `tsc --noEmit` and
+`next build` clean.
+
+**Note:** `npx eslint` is broken in this repo — `eslint-config-next/dist` is
+missing from `node_modules`. Pre-existing, reproduces on a clean tree, unrelated
+to this work. Worth an `npm install` fix.
