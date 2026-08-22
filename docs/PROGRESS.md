@@ -1170,3 +1170,29 @@ bar still 76px, grid still 342px at both 15x15 and 21x21. Full suite green:
 key handlers and has never been tested with a real screen reader; nothing here
 was verified on actual iOS VoiceOver. It means the automated WCAG 2.2 A/AA
 checks pass and the specific defects above are gone.
+
+### Session 19b — Cards needed a real edge
+Reported as: hard to see where a card ends and the background begins.
+
+The card had **no border at all** — just `shadow-raise`. `--surface` on
+`--canvas` measures **1.10:1**, so the shadow was doing the entire job of
+separating a card from the page, and on a bright screen it washed out.
+
+Added `--edge`, distinct from `--line`: `--line` divides things *inside* a
+surface, `--edge` is the outer boundary of a raised surface against the ground.
+#b3aea8 light, #564d41 dark — darker than the card in light mode, lighter in
+dark, landing ~2:1 against both the ground and the fill in either theme.
+
+Three strengths were rendered on the real page before choosing (~1.6:1, ~2:1,
+~3:1). 3:1 is what WCAG 1.4.11 asks of a *control* boundary, but a card is not a
+control, and at 3:1 (#908d88) the border read as a wireframe against Daylight's
+softness. 2:1 is clearly visible without that.
+
+Applied to the puzzle card and to the library's header bar, which is the same
+`bg-surface` on `canvas` pattern and had the same problem — fixing one and not
+the other would have looked like an oversight.
+
+Unrelated, found on the way: **iCloud had littered `.next/` with 22 duplicate
+files** (`cache-life.d 2.ts` and friends), which broke `next build` with a
+TS6200 identifier conflict. `.next` is gitignored, so they were local only.
+Worth knowing this repo lives in iCloud Drive and will do it again.

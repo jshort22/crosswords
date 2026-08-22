@@ -25,6 +25,13 @@
      from the old value. Dark's --ink-soft already passed and is untouched. */
   --ink-soft: #746d62;
   --line: #e7e1d9;
+  /* --line divides things INSIDE a surface. --edge is the outer boundary of a
+     raised surface against the page ground, which is a harder job: --surface on
+     --canvas is only 1.10:1, so before this the shadow was the only thing
+     separating a card from the background, and on a bright screen it vanished.
+     ~2:1 against both the ground and the card fill — visible without turning
+     the card into a wireframe. */
+  --edge: #b3aea8;
 
   --accent: #14776a;
   --accent-ink: #ffffff;      /* text ON accent */
@@ -72,6 +79,7 @@
   --ink: #f3eee6;
   --ink-soft: #9b9184;
   --line: #322d26;
+  --edge: #564d41;            /* lighter than the card, same ~2:1 job */
 
   --accent: #43c3ab;
   --accent-ink: #10221e;
@@ -113,6 +121,7 @@
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-line: var(--line);
+  --color-edge: var(--edge);
 
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
