@@ -17,13 +17,19 @@ const last = white[white.length-1]
 for (const c of white.slice(0,-1)) await type(c, c.l)
 await type(last, last.l === 'X' ? 'W' : 'X')   // final letter wrong
 await page.waitForTimeout(500)
-console.log(`ERROR_BANNER_SHOWN=${await page.locator('text=At least one letter is wrong').count() > 0}`)
+// The full-but-wrong message is a centred modal now, not an inline pill, and it
+// covers the grid until dismissed — so select on the hook and click through it
+// before carrying on, or every step after this silently does nothing.
+console.log(`ERROR_MODAL_SHOWN=${await page.locator('[data-wrong-modal]').count() > 0}`)
 console.log(`gold_prematurely=${await page.locator('[data-grid][data-celebrating]').count() > 0}`)
 console.log(`modal_prematurely=${await page.locator('[data-complete-modal]').count() > 0}`)
 
+await page.locator('[data-wrong-modal] button').click()
+await page.waitForTimeout(200)
+console.log(`DISMISSED=${await page.locator('[data-wrong-modal]').count() === 0}`)
+
 await type(last, last.l)  // now fix it
 await page.waitForTimeout(400)
-console.log(`BANNER_CLEARED=${await page.locator('text=At least one letter is wrong').count() === 0}`)
 await page.waitForTimeout(3300)
 console.log(`gold=${await page.locator('[data-grid][data-celebrating]').count()} modal=${await page.locator('[data-complete-modal]').count()>0} trophy=${await page.locator('[data-complete-mark]').count()>0}`)
 console.log(`solved=${await page.evaluate(id=>localStorage.getItem('crossword-solved-'+id),ID)}`)

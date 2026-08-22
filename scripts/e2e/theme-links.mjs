@@ -53,8 +53,14 @@ for (const w of [...ACROSS]) {
   pick.push(w)
   if (pick.length === 4) break
 }
-const [MARQ, ...THEMERS] = pick
-const themeSet = { marquee: `${MARQ.number}A`, themers: THEMERS.map(t => `${t.number}A`) }
+// Two marquees and two themers: a puzzle can have more than one revealer, and
+// the interesting case is that marquees light EACH OTHER as well as the themers.
+const [M1, M2, T1, T2] = pick
+const MARQUEES = [M1, M2], THEMERS = [T1, T2]
+const themeSet = {
+  marquees: MARQUEES.map(m => `${m.number}A`),
+  themers: THEMERS.map(t => `${t.number}A`),
+}
 console.log('seeding', JSON.stringify(themeSet))
 await rest('PATCH', `id=eq.${ID}`, { theme_set: themeSet })
 
@@ -84,7 +90,7 @@ try {
   // click a scratch cell first, then the target, then nudge with the arrows,
   // which forces a known direction (MOVE derives it from the delta).
   const scratch = (() => {
-    const used = new Set([MARQ, ...THEMERS].flatMap(w => w.cells.map(([r, c]) => `${r},${c}`)))
+    const used = new Set(pick.flatMap(w => w.cells.map(([r, c]) => `${r},${c}`)))
     for (let r = grid.length - 1; r >= 0; r--)
       for (let c = 0; c < cols; c++)
         if (white(r, c) && !used.has(`${r},${c}`)) return [r, c]
@@ -106,29 +112,53 @@ try {
   }
   const cellsOf = w => w.cells.map(([r, c]) => idx(r, c)).sort((a, z) => a - z)
 
-  console.log('\n--- marquee lights every theme answer ---')
-  const fromMarquee = await linkedAt(MARQ.cells[0])
-  const expectAll = THEMERS.flatMap(cellsOf).sort((a, z) => a - z)
-  ok('all themers lit, nothing else', JSON.stringify(fromMarquee) === JSON.stringify(expectAll),
-     `${fromMarquee.length} lit, expected ${expectAll.length}`)
+  const sortNum = a => [...a].sort((x, z) => x - z)
 
-  console.log('\n--- a theme answer lights the marquee ONLY ---')
+  console.log('\n--- a marquee lights every themer AND the other marquee ---')
+  for (const [i, m] of MARQUEES.entries()) {
+    const lit = await linkedAt(m.cells[0])
+    const others = MARQUEES.filter((_, j) => j !== i)
+    const expect = sortNum([...others, ...THEMERS].flatMap(cellsOf))
+    ok(`marquee ${i + 1}: other marquee + all themers lit`,
+       JSON.stringify(lit) === JSON.stringify(expect), `${lit.length} lit, expected ${expect.length}`)
+    ok(`marquee ${i + 1} does not light itself`, !lit.some(x => cellsOf(m).includes(x)))
+  }
+
+  console.log('\n--- a theme answer lights ALL marquees, and no sibling themer ---')
   for (const [i, t] of THEMERS.entries()) {
     const lit = await linkedAt(t.cells[0])
-    ok(`themer ${i + 1} lights the marquee`, JSON.stringify(lit) === JSON.stringify(cellsOf(MARQ)),
-       `${lit.length} lit, expected ${cellsOf(MARQ).length}`)
+    const expect = sortNum(MARQUEES.flatMap(cellsOf))
+    ok(`themer ${i + 1} lights both marquees`, JSON.stringify(lit) === JSON.stringify(expect),
+       `${lit.length} lit, expected ${expect.length}`)
     const siblingCells = THEMERS.filter((_, j) => j !== i).flatMap(cellsOf)
     ok(`themer ${i + 1} does NOT light its siblings`, !lit.some(x => siblingCells.includes(x)))
   }
 
+  console.log('\n--- one marquee behaves exactly as it did before ---')
+  await rest('PATCH', `id=eq.${ID}`, { theme_set: { marquees: [`${M1.number}A`], themers: themeSet.themers } })
+  const solo = await linkedAt(M1.cells[0])
+  ok('lone marquee lights just the themers',
+     JSON.stringify(solo) === JSON.stringify(sortNum(THEMERS.flatMap(cellsOf))),
+     `${solo.length} lit`)
+  ok('themer lights the lone marquee',
+     JSON.stringify(await linkedAt(T1.cells[0])) === JSON.stringify(cellsOf(M1)))
+  await rest('PATCH', `id=eq.${ID}`, { theme_set: themeSet })
+
+  console.log('\n--- the LEGACY single-marquee shape still works ---')
+  // Rows written before multiple marquees were allowed are still in the DB.
+  await rest('PATCH', `id=eq.${ID}`, { theme_set: { marquee: `${M1.number}A`, themers: themeSet.themers } })
+  ok('legacy {marquee:"..."} still lights the themers',
+     JSON.stringify(await linkedAt(M1.cells[0])) === JSON.stringify(sortNum(THEMERS.flatMap(cellsOf))))
+  await rest('PATCH', `id=eq.${ID}`, { theme_set: themeSet })
+
   console.log('\n--- an unrelated answer lights nothing ---')
-  const outsider = ACROSS.find(w => ![MARQ, ...THEMERS].includes(w) && w.cells.length >= 3)
+  const outsider = ACROSS.find(w => !pick.includes(w) && w.cells.length >= 3)
   if (outsider) ok('no linked cells', (await linkedAt(outsider.cells[0])).length === 0)
 
   console.log('\n--- the active word wins over a linked cell ---')
   const page = await fresh()
   if (scratch) await page.locator(SEL).nth(idx(...scratch)).click()
-  await page.locator(SEL).nth(idx(...MARQ.cells[0])).click()
+  await page.locator(SEL).nth(idx(...M1.cells[0])).click()
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowLeft')
   await page.waitForTimeout(120)
   const both = await page.evaluate(s => [...document.querySelectorAll(s)]
@@ -138,7 +168,7 @@ try {
 
   console.log('\n--- with no theme set, nothing is ever linked ---')
   await rest('PATCH', `id=eq.${ID}`, { theme_set: {} })
-  ok('marquee cell lights nothing now', (await linkedAt(MARQ.cells[0])).length === 0)
+  ok('marquee cell lights nothing now', (await linkedAt(M1.cells[0])).length === 0)
 
   ok('no console/page errors', errs.length === 0, errs.slice(0, 3).join(' | '))
 } finally {

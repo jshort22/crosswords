@@ -1326,3 +1326,229 @@ from the themer list, only one marquee can ever be checked, Save persists to the
 DB, reopening the editor restores the controls, and the solver highlights it.
 14/14. Both harnesses restore the puzzle's original `theme_set` when they finish,
 so they are safe to re-run against the live database.
+
+---
+
+## Session 21 — Multiple Marquees
+
+A puzzle can have more than one revealer, so the model changed from one marquee
+to a list.
+
+**Behaviour.** On a marquee: every themer **and the other marquees** light. On a
+themer: **all marquees** light, still never its sibling themers. One marquee
+behaves exactly as it did before — covered by an explicit test, since that is the
+case that must not regress.
+
+**The admin control went from radio to checkbox.** The radio was right when the
+model allowed exactly one marquee: it made a second impossible by construction
+rather than something to validate. Once several are legitimate, a radio is
+actively wrong. Both roles are checkboxes now, and they stay mutually exclusive
+*per answer* — an answer cannot be both a revealer and one of the things it
+reveals — so ticking one clears the other, in both directions.
+
+**Legacy data had to survive.** `'Matter of Fact'` already held a real authored
+theme in the old shape, `{"marquee":"42A","themers":[...]}`. Rather than migrate
+the row, `deserializeThemeSet` reads both shapes: `marquees` (a list) when
+present, otherwise the single `marquee` string. The next save rewrites it in the
+new shape. No migration, no data loss, and the tolerance is tested directly.
+
+Also tightened while in there: duplicate marquees are deduped, and an answer
+listed in both roles resolves to marquee only.
+
+### Two harness bugs, both mine, both the same lesson
+- `theme-admin.mjs` failed eight assertions — because it asserted absolute counts
+  ("2 marquees") while running against a puzzle that already carried a real
+  authored theme, so it was adding to an existing set. The app was correct
+  throughout. Fixed by clearing `theme_set` at the start; `before` was already
+  captured and restored, so nothing was at risk.
+- The lesson, twice over now: **a harness that assumes empty state will pass
+  until real data exists.** Seed the state you are asserting about.
+
+### Verification
+Logic: legacy shape round-trip, nine malformed inputs, the asymmetry from both
+ends, marquees not lighting themselves, and one-marquee behaviour unchanged.
+`theme-links.mjs` 15/15 (now including a legacy-shape case), `theme-admin.mjs`
+20/20, `a11y.mjs` zero violations across 13 states. Regression green: `backspace`
+(18), `cluebar-toggle` (13), `skipfilled`, `arrow-skip`, `solve`, `mobile-solve`,
+`revisit`, `banner`, `staleprogress`, `freshstart`, `timer-toggle`, `difficulty`,
+`stability`. `tsc` and `next build` clean. Screenshot confirms a marquee lighting
+the other marquee alongside the themers.
+
+Every harness restores the puzzle's original `theme_set` on exit — Jack's authored
+theme survived every run.
+
+### Session 21b — Hold-to-repeat on the on-screen delete key
+The mobile ⌫ fired once per tap; holding it did nothing. The physical key never
+had this problem because the OS repeats `keydown` itself — which is why the
+original Session 17 bug report said "if you hold down the backspace key" and
+still described real behaviour.
+
+400ms before the first repeat, then every 80ms — about twelve cells a second,
+brisk enough to clear a long answer and slow enough to stop where you meant to.
+The delay is long enough that a normal tap never repeats. **Letters deliberately
+do not repeat**: holding a letter should never type "AAAA" into a crossword.
+
+### The part that would have been a silent bug
+`onDelete` is `inputBackspace`, a `useCallback` over solver state — so it is a
+**new function after every single deletion**. An interval closing over the one
+that existed at pointerdown would keep calling a stale closure: it deletes one
+cell and then spins, re-deleting an already-empty cell forever. The repeat
+therefore calls through a ref that an effect keeps pointing at the current
+`onDelete`.
+
+This is also why `hold-delete.mjs` asserts **cells cleared**, not events fired.
+An event-count test passes with the stale-closure bug fully present; only
+counting cells catches it. Verified failing against the pre-change code (1 cell
+cleared vs 11) before it passed.
+
+Stopped on pointerup, pointercancel **and pointerleave** — sliding a finger off
+a key fires no pointerup on that element, so without pointerleave the repeat
+would run until the next tap. Also cleared on unmount and when `disabled` flips
+mid-hold, either of which would otherwise leave a live interval.
+
+Holding past the start of the grid is safe because Session 18b already stopped
+backspace wrapping: it runs out of cells and stops rather than looping the grid.
+
+Verified: `hold-delete` 8/8, `mobile-solve`, `backspace` (18), `cluebar-toggle`
+(13), `stability`, `a11y` all green.
+
+### Session 21c — "Sometimes the key doesn't take" was real, and it was the gaps
+Reported as possibly a device problem. It was not.
+
+The keyboard's keys sit in a flex row with a 4px gap between them and 6px between
+rows, and **those gaps were dead**. Measured against a production build: 27/27
+key centres registered, **0 of 24 key gaps did**, **0 of 2 row gaps did**, and a
+1px sweep across one 38px pitch found 3px doing nothing. About 8% of the
+horizontal band was a hole, plus every row gap. That is exactly what an
+occasional missed keypress feels like.
+
+Fixed with `.key-hit`, an absolutely-positioned `::after` inset `-3px -2px` —
+half of each gap — so the targets tile with no holes. Out of flow, so the
+keyboard's height is untouched; extending only to each gap's midpoint, so no key
+steals its neighbour (asserted: only the two adjacent letters ever appear across
+a full pitch). Verified 15/15 across iPhone SE, 13 and 14 Pro Max, and confirmed
+failing 0/24 on the pre-fix code against the same production build.
+
+Key **width** is not the bug. At 390px the keys are ~34px, under the 44px iOS
+guidance, but iOS's own keyboard keys are about the same width — they just have no
+dead gaps between them.
+
+### Two measurement traps, both of which produced confident wrong answers
+- **The Next.js dev overlay covers the keyboard.** `nextjs-portal` renders
+  `position: fixed` content over the lower part of a phone viewport. Its host
+  element measures **0x0**, so it is invisible to `getBoundingClientRect` but
+  fully present to `elementFromPoint` and to taps. It scored a correct keyboard at
+  6/24 live gaps. **Touch-geometry tests must run against a production build.**
+- **Counting filled cells is the wrong instrument here.** After ~100 taps the
+  cursor sits on cells that already hold letters, so a real keypress *overwrites*
+  rather than adds and a cell count reads it as a miss. This question is purely
+  geometric, so `key-hits.mjs` instruments `pointerdown` and records which button
+  received it. Note that is the *opposite* of `hold-delete.mjs`, which must count
+  cells because the bug it guards fires plenty of events against stale state.
+  **Pick the instrument from the failure mode, not by habit.**
+
+Also worth recording: a zombie dev server on port 3000 made a correct CSS fix
+look like it did nothing. `pkill -f "next dev"` does not kill it — the process is
+`next-server`. Use `lsof -ti:3000 | xargs kill -9`.
+
+### Session 21d — Full-but-wrong is a modal now, shown once
+The message was an inline pill rendered **inside the grid column**, so it
+appeared and vanished in the grid's own space and resized the grid at the exact
+moment you were reading it. It is now a centred modal with a **Keep trying**
+button, NYT-style. Verified the grid's bounding box is identical before and
+after: `660x660 @326,139.5` either way.
+
+**Shown once per attempt**, tracked by `crossword-wrongshown-{id}`. The message
+is "the grid is full but not right"; once that has landed, repeating it every
+time the grid happens to be full and wrong is nagging. `handleReset` clears the
+flag — a fresh attempt earns the message again, otherwise resetting a puzzle you
+had given up on would leave you with no feedback at all.
+
+The trade being made: on a second and later full-but-wrong grid there is now no
+feedback at all. That is what was asked for and it is defensible, but it is worth
+watching in real use — "did that register?" is the failure mode to look for.
+
+The button keeps `autoFocus` because focus belongs inside a modal dialog, but the
+browser's default blue focus ring is off-palette here, so it is **restyled**
+rather than removed — removing a visible focus indicator fails WCAG 2.4.7.
+
+### One knock-on worth recording
+A modal intercepts pointer events, so **any harness that fills a grid with wrong
+letters and then keeps clicking will hang**. `skipfilled.mjs` does exactly that
+for its last assertion and started timing out with `<div data-wrong-modal>
+intercepts pointer events`. Setting `crossword-wrongshown-{id}` up front is the
+intended opt-out, and it is now documented in the harness README.
+
+`a11y.mjs` gained a scan for the new dialog, seeding a full-but-wrong grid
+through localStorage rather than typing 187 cells — which also exercises the
+restore path. Clean across 14 states.
+
+Verified: `wrong-modal` 15/15, `banner` updated and green, `skipfilled` 10/10
+after the opt-out, plus `hold-delete`, `backspace` (18), `cluebar-toggle` (13),
+`key-hits` (15), `solve`, `mobile-solve`, `revisit`, `staleprogress`,
+`freshstart`, `timer-toggle`, `difficulty`, `stability`, `theme-links` (15).
+
+### Session 21e — Dropped the alert icon from the wrong-answer modal
+The red exclamation-in-a-circle read as an error. A full grid with one wrong
+letter is a nudge — the heading and the "Keep trying" button carry it fine, and
+the completion modal's trophy is what should be the only badge in the solver.
+Nothing depended on the icon: `wrong-modal` 15/15, `banner`, `solve` and `a11y`
+all still green.
+
+### Session 21f — Confirming the new modal did not disturb finishing
+Asked for directly, and the right thing to check: the wrong-answer modal sits in
+the middle of the solve, so the risk is that dismissing it leaves the completion
+flow in a different state.
+
+`completion-integrity.mjs` runs the same assertions down two paths — a clean
+solve, and a solve that goes **through** the modal (fill with one wrong letter,
+dismiss, fix, complete) — and compares the end states directly rather than
+checking each in isolation. **23/23, and the two end states are identical:**
+
+```
+A={"celebrating":1,"completeModal":1,"trophy":1,"wrongModalStillUp":0,
+   "progress":null,"readOnly":true,"goldAfterEdit":1,"frozen":true}
+B= (same)
+```
+
+Covered in both: gold sweep runs, trophy modal appears, the timer freezes (read
+three times — at completion, after the celebration, and two seconds later), the
+solved record is written with an elapsed time, the in-progress record is cleared,
+the grid rejects further input, and it stays gold after an attempted edit.
+
+Also confirmed the leftover `crossword-wrongshown` flag is inert: after solving
+through the modal it holds `"1"`, and revisiting the solved puzzle holds the gold
+without replaying the sweep, does not re-show the completion modal, does not
+raise the wrong-answer modal, keeps the solved record and writes no junk
+progress. `revisit`, `mobile-solve`, `solve check` and `freshstart` all green.
+
+Why the flag cannot go stale in a harmful way: a solved grid is read-only, so it
+cannot become full-and-wrong again, and `handleReset` clears the flag.
+
+### Session 21g — The bottom row was off-centre by three quarters of a key
+Reported as "the Z isn't where it should be". Measured, and it was worse than a
+look-and-feel point: with `ZXCVBNM` flush left and delete on the right, the
+letter block sat **0.77 of a key width left of centre** on every phone tested —
+28px (SE), 35px (13), 38px (Pro Max) — while `ASDFGHJKL` directly above it was at
+**0.0px drift**. So the bottom row disagreed with the app's own row above it, not
+just with iOS, and a thumb aiming at N landed near the B boundary.
+
+That is very likely part of what "sometimes the key doesn't take" was: some of
+those taps did register, as the *wrong letter*, which is much harder to notice
+than nothing happening.
+
+Fixed with an empty `flex-[1.6]` slot on the left mirroring the delete key.
+Re-measured at **0.0px drift on all three phones**, matching the row above.
+
+Deliberately not a button. On a real keyboard that position is shift; nothing
+here needs it, and a key that does nothing is worse than an honest gap. A
+symbols/`123` layer was considered and rejected on the same grounds —
+`inputLetter` only accepts `/^[a-zA-Z]$/` and a cell holds a single letter, so
+every key on that layer would be inert: a dead end that looks like a feature.
+
+Side effect worth having: the bottom row's keys are now the same width as the
+other two rows (37.9px pitch instead of 44.7px), so the keyboard is uniform.
+
+Verified: `key-hits` 15/15 across three phones — the new slot does not reopen any
+dead zone — plus `stability` (76px bar / 342px grid), `mobile-solve`,
+`hold-delete` and `cluebar` all green.

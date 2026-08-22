@@ -27,12 +27,15 @@ export interface ClueRef {
 }
 
 /**
- * The puzzle's theme set: one marquee (the revealer) and the answers that pay
- * it off. Selecting the marquee lights every themer; selecting a themer lights
- * the marquee only, not its siblings — the marquee is the hub.
+ * The puzzle's theme set: the marquees (the revealers) and the answers that pay
+ * them off. A puzzle can have more than one marquee — that happens.
+ *
+ * Selecting a marquee lights every themer **and the other marquees**; selecting
+ * a themer lights the marquees only, never its sibling themers. The marquees are
+ * the hubs, and themers still do not reveal each other.
  */
 export interface ThemeSet {
-  marquee: ClueRef | null
+  marquees: ClueRef[]
   themers: ClueRef[]
 }
 

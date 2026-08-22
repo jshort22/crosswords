@@ -8,6 +8,7 @@ import { getActiveClue, firstUnfilledCell, formatTime, prevCellForBackspace, lin
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
+import WrongAnswerModal from './WrongAnswerModal'
 import SolverActions from './SolverActions'
 import ClueBar from './ClueBar'
 import ClueSheet from './ClueSheet'
@@ -74,6 +75,10 @@ function loadProgress(
   }
 }
 
+// One flag per puzzle, so the "not quite" modal appears once per attempt rather
+// than every time the grid happens to be full and wrong.
+const wrongShownKey = (id: string) => `crossword-wrongshown-${id}`
+
 export default function SolverClient({ puzzle }: Props) {
   const { state, wordCells, wordCellSet, setLetter, clearLetter, setActive, setDirection, toggleDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
     useCrosswordSolver(puzzle)
@@ -83,6 +88,7 @@ export default function SolverClient({ puzzle }: Props) {
   const [elapsed, setElapsed] = useState(0)
   const [timerVisible, setTimerVisible] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [showWrongModal, setShowWrongModal] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const isMobile = useIsMobile()
   // State, not a ref: it batches with the restore dispatches below, so the first
@@ -130,6 +136,18 @@ export default function SolverClient({ puzzle }: Props) {
     const id = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(id)
   }, [state.isComplete])
+
+  // Full grid, at least one letter wrong. Fires on the transition into
+  // hasErrors, and only if this attempt has not already been told — the message
+  // is "full but not right", and once that has landed, repeating it is nagging.
+  useEffect(() => {
+    if (!state.hasErrors) return
+    let alreadyShown = false
+    try { alreadyShown = localStorage.getItem(wrongShownKey(puzzle.id)) !== null } catch {}
+    if (alreadyShown) return
+    try { localStorage.setItem(wrongShownKey(puzzle.id), '1') } catch {}
+    setShowWrongModal(true)
+  }, [state.hasErrors, puzzle.id])
 
   // Celebration sequence
   useEffect(() => {
@@ -200,8 +218,13 @@ export default function SolverClient({ puzzle }: Props) {
     reset()
     setElapsed(0)
     setCelebrationPhase('idle')
+    setShowWrongModal(false)
     restoredAsSolvedRef.current = false
     try { localStorage.removeItem(`crossword-solved-${puzzle.id}`) } catch {}
+    // A fresh attempt earns the message again — it is once per attempt, not
+    // once per browser, or resetting a puzzle you had given up on would leave
+    // you with no feedback at all.
+    try { localStorage.removeItem(wrongShownKey(puzzle.id)) } catch {}
   }, [reset, puzzle.id])
 
   const handleKeyDown = useCallback(
@@ -468,12 +491,10 @@ export default function SolverClient({ puzzle }: Props) {
               onKeyDown={handleKeyDown}
               celebrationPhase={celebrationPhase}
             />
-            {/* Error notification */}
-            {state.hasErrors && (
-              <div className="bg-danger-soft rounded-full px-4 py-2.5 text-sm text-danger font-medium">
-                At least one letter is wrong. Keep trying!
-              </div>
-            )}
+            {/* The full-but-wrong message is a centred modal, NOT an element
+                here — an inline pill in this column appeared and vanished
+                inside the grid's own space, resizing the grid at the exact
+                moment you were reading it. See WrongAnswerModal. */}
           </div>
 
           {/* Active clue bar — pinned below the grid, always in view */}
@@ -551,6 +572,8 @@ export default function SolverClient({ puzzle }: Props) {
           onClose={() => setSheetOpen(false)}
         />
       )}
+
+      {showWrongModal && <WrongAnswerModal onClose={() => setShowWrongModal(false)} />}
 
       {showModal && (
         <CompletionModal

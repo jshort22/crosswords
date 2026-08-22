@@ -43,7 +43,15 @@ let pass = 0, fail = 0
 
 const fresh = async () => {
   await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
-  await page.evaluate(() => localStorage.clear())
+  // Suppress the full-but-wrong modal. This test deliberately fills the whole
+  // grid with wrong letters, which raises it — and being a modal it intercepts
+  // pointer events, so every click after that times out. Setting the
+  // once-per-attempt flag is the intended opt-out for harnesses that are not
+  // testing the modal itself.
+  await page.evaluate(id => {
+    localStorage.clear()
+    localStorage.setItem(`crossword-wrongshown-${id}`, '1')
+  }, ID)
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForSelector(SEL)
 }
