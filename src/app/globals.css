@@ -37,7 +37,7 @@
   --cell-active: #14776a;     /* the cursor */
   --cell-active-ink: #ffffff;
 
-  --gold: #d99b2b;            /* celebration only */
+  --gold: #d99b2b;            /* celebration + the solved trophy on a card */
   --gold-sweep: rgba(217, 155, 43, 0.5);
   --danger: #a8321f;
   --danger-soft: #fbe7e2;

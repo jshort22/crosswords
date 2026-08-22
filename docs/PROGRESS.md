@@ -1024,3 +1024,18 @@ the pre-fix code (6 failures), then passes**, which is the only reason to trust
 it. Regression suite re-run green: `skipfilled` (10), `arrow-skip` (0/16),
 `solve` plain, `revisit`, `mobile-solve`, `banner`, `staleprogress`,
 `freshstart`. No console or page errors. `tsc --noEmit` and `next build` clean.
+
+### Also this session: the solved mark is a trophy now
+On the library card, the mark beside your time was a checkmark. A tick reads as
+"done" the way a completed form field does — but the card is where you *choose*
+a puzzle, so the mark should say you beat this one. It is now a small stroked
+trophy in `--gold` (`text-gold`), the same gold as the completion sweep, so the
+reward reads as one colour across the app. The time beside it stays
+`text-accent`; gold icon against teal figures was checked at 3× in both modes
+before it was kept.
+
+Gave it a `data-solved-mark` hook while there. The solved state only renders
+once localStorage says so, which makes it the easiest thing on the page to break
+without noticing, and nothing was selecting it at all.
+
+`--gold`'s comment in `globals.css` said "celebration only". It no longer is.
