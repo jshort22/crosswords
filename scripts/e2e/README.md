@@ -27,6 +27,12 @@ cp <repo>/scripts/e2e/*.mjs /tmp/e2e/
 
 Start the dev server first (`npm run dev` in the repo, on port 3000).
 
+**Except for anything that taps near the bottom of a phone-sized viewport.** The
+Next.js dev overlay (`nextjs-portal`) renders `position: fixed` content over that
+area — its host element measures 0x0, so it is invisible to
+`getBoundingClientRect` but not to taps. It made `key-hits.mjs` report a correct
+keyboard as 6/24. Use `npm run build && npx next start -p 3000` for those.
+
 Several scripts read the puzzle grid from `/tmp/grid.json`. Fetch it with:
 
 ```bash
@@ -99,6 +105,7 @@ Three tests "failed" against correct code before that was in place.
 | `theme-links.mjs [id]` | Theme links end to end: the marquee lights every theme answer, a theme answer lights the marquee and **not** its siblings, an unrelated answer lights nothing, no cell is both linked and in-word, and an empty theme set links nothing. **Self-seeding** — writes a theme set over the REST API and restores the original afterwards, so it needs `set -a && source .env.local && set +a` and the `theme_set` column |
 | `theme-admin.mjs` | The admin round-trip for theme links: the radios/checkboxes render, the summary updates, the two roles are mutually exclusive, only one marquee can be checked, it saves to the DB, the editor reflects it on reload, and the solver highlights it. Logs in with the hardcoded password and **restores the puzzle's original `theme_set` afterwards**. Needs `set -a && source .env.local && set +a` |
 | `hold-delete.mjs [id]` | Press-and-hold on the mobile ⌫: a 1200ms hold clears many cells (not one — that is the stale-callback failure mode), a tap still clears exactly one, releasing stops it, sliding a finger off the key stops it, and holding past the start of the grid empties it without error |
+| `key-hits.mjs [id]` | Keyboard hit targets on three phone sizes: every key centre hits the right key, every key gap and row gap is live (they used to be dead), no dead pixels across a full key pitch, and no key steals its neighbour. **Run this against a production build** — the dev overlay covers the keyboard and makes it fail. |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

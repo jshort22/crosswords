@@ -232,6 +232,28 @@ body {
 /* Applied to the grid and the on-screen keyboard. `manipulation` kills
    double-tap-to-zoom while leaving panning intact — this is the correct fix,
    not user-scalable=no (which iOS ignores anyway and which breaks pinch zoom). */
+/* Keyboard keys are separated by a 4px flex gap horizontally and 6px between
+   rows, and those gaps were DEAD: a tap landing in one hit the row container and
+   did nothing. Measured on an emulated iPhone 13 — 10/10 taps on key centres
+   registered, 0/9 taps in the gaps did, and a 1px sweep across one 38px pitch
+   found 3px doing nothing: about 8% of the horizontal band, plus every row gap.
+   That reads exactly like "sometimes the key doesn't take".
+
+   This extends each key's hit area to the middle of the gap on every side, so
+   the targets tile with no holes. It cannot change the layout: the pseudo-element
+   is absolutely positioned, so it is out of flow and the keyboard's height —
+   which the grid sizes itself against — is untouched. Insets are half of each
+   gap, so neighbouring keys meet exactly and never overlap.
+
+   The key WIDTH (~34px on a 390px screen) is not the bug; iOS's own keyboard
+   keys are about the same. It is the gaps between them that iOS doesn't have. */
+.key-hit { position: relative; }
+.key-hit::after {
+  content: '';
+  position: absolute;
+  inset: -3px -2px;
+}
+
 .touch-target {
   touch-action: manipulation;
   -webkit-touch-callout: none;

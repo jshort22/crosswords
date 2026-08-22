@@ -1411,3 +1411,42 @@ backspace wrapping: it runs out of cells and stops rather than looping the grid.
 
 Verified: `hold-delete` 8/8, `mobile-solve`, `backspace` (18), `cluebar-toggle`
 (13), `stability`, `a11y` all green.
+
+### Session 21c — "Sometimes the key doesn't take" was real, and it was the gaps
+Reported as possibly a device problem. It was not.
+
+The keyboard's keys sit in a flex row with a 4px gap between them and 6px between
+rows, and **those gaps were dead**. Measured against a production build: 27/27
+key centres registered, **0 of 24 key gaps did**, **0 of 2 row gaps did**, and a
+1px sweep across one 38px pitch found 3px doing nothing. About 8% of the
+horizontal band was a hole, plus every row gap. That is exactly what an
+occasional missed keypress feels like.
+
+Fixed with `.key-hit`, an absolutely-positioned `::after` inset `-3px -2px` —
+half of each gap — so the targets tile with no holes. Out of flow, so the
+keyboard's height is untouched; extending only to each gap's midpoint, so no key
+steals its neighbour (asserted: only the two adjacent letters ever appear across
+a full pitch). Verified 15/15 across iPhone SE, 13 and 14 Pro Max, and confirmed
+failing 0/24 on the pre-fix code against the same production build.
+
+Key **width** is not the bug. At 390px the keys are ~34px, under the 44px iOS
+guidance, but iOS's own keyboard keys are about the same width — they just have no
+dead gaps between them.
+
+### Two measurement traps, both of which produced confident wrong answers
+- **The Next.js dev overlay covers the keyboard.** `nextjs-portal` renders
+  `position: fixed` content over the lower part of a phone viewport. Its host
+  element measures **0x0**, so it is invisible to `getBoundingClientRect` but
+  fully present to `elementFromPoint` and to taps. It scored a correct keyboard at
+  6/24 live gaps. **Touch-geometry tests must run against a production build.**
+- **Counting filled cells is the wrong instrument here.** After ~100 taps the
+  cursor sits on cells that already hold letters, so a real keypress *overwrites*
+  rather than adds and a cell count reads it as a miss. This question is purely
+  geometric, so `key-hits.mjs` instruments `pointerdown` and records which button
+  received it. Note that is the *opposite* of `hold-delete.mjs`, which must count
+  cells because the bug it guards fires plenty of events against stale state.
+  **Pick the instrument from the failure mode, not by habit.**
+
+Also worth recording: a zombie dev server on port 3000 made a correct CSS fix
+look like it did nothing. `pkill -f "next dev"` does not kill it — the process is
+`next-server`. Use `lsof -ti:3000 | xargs kill -9`.

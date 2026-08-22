@@ -59,8 +59,10 @@ export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false 
   // 14 Pro Max ~260px — so it goes to the keys, where it buys easier typing.
   // Floor is 2.75rem (44px, the iOS minimum touch target); ceiling keeps keys
   // from looking absurd on the tallest devices.
+  // key-hit extends the tap area into the flex gaps, which were dead — see
+  // globals.css. Visual size and the keyboard's height are unchanged.
   const keyClass =
-    'flex-1 min-w-0 h-[clamp(2.75rem,7.5svh,3.75rem)] rounded-[10px] font-semibold text-base flex items-center justify-center ' +
+    'key-hit flex-1 min-w-0 h-[clamp(2.75rem,7.5svh,3.75rem)] rounded-[10px] font-semibold text-base flex items-center justify-center ' +
     'bg-surface text-ink shadow-key ' +
     'transition-colors active:bg-accent-soft active:text-accent-soft-ink ' +
     (disabled ? 'opacity-40' : '')
