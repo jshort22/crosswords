@@ -717,3 +717,91 @@ record is written before a single letter is typed. NYT behaves the same way
 record — `PuzzleCardActions` reads only the `crossword-solved-` key, so a card
 never shows a peeked puzzle as started. Left as is; gating the clock on the first
 letter is a one-line change if that is preferred.
+
+---
+
+## Session 14 — The Daylight Redesign
+
+Six design directions were drafted as a canvas (library + solver + phone, each
+with real puzzles and real clues), narrowed to two, then shown in light and dark.
+**D · Daylight** was chosen: warm off-white, soft shadows, pill controls, a teal
+accent, Bricolage Grotesque over DM Sans.
+
+### One palette, in tokens, no `dark:` colour variants
+
+The old styling hardcoded Tailwind shades and duplicated every one for dark
+(`bg-white dark:bg-gray-800`, ~177 such references in admin alone). That is now
+a token system in `globals.css` — `--canvas`, `--surface`, `--sunken`, `--ink`,
+`--ink-soft`, `--line`, the `--accent*` family, a separate `--cell*` family for
+the grid, `--danger*`, and `--diff-1..5` — exposed to Tailwind through
+`@theme inline` so they come out as ordinary utilities (`bg-surface`,
+`text-ink-soft`, `border-line`).
+
+The tokens flip under `.dark`, so **a component names a role, not a colour, and
+needs no `dark:` variant at all.** `src/` now contains zero `bg-gray-*`-style
+palette classes and zero `dark:` colour utilities. That deleted more code than it
+added and is why admin got a dark mode it never had.
+
+The grid keeps its own token family on purpose: it has to stay legible when every
+other surface changes, and reusing `--surface` for a cell would tie the two
+together.
+
+**Dark is warm** — brown-black `#17140f`, not blue-black. That was the whole
+distinction between direction D and direction C once both were dark; a cool dark
+here would quietly turn this into the other design.
+
+`difficultyColors` in `utils.ts` went from ten Tailwind classes with `dark:`
+halves to five token pairs (`bg-diff-1-soft text-diff-1`).
+
+### Fonts
+Bricolage Grotesque (`font-display`) and DM Sans (`font-sans`), both via
+`next/font/google`. Playfair Display and two never-used Geist faces are gone —
+and body text was falling through to **Arial**, since `--font-sans` pointed at a
+Geist variable that was never applied.
+
+### Two things the mockup got wrong, found only in the real app
+1. **The rounded grid clipped 1-Across's number.** Rounding the cell container
+   needs `overflow-hidden` to clip the corner, and the first cell's number sits
+   exactly there. At mockup scale it wasn't visible.
+2. **Rounded cells left pinholes.** A 3px cell radius over a 1.5px gap shows a
+   small square of line colour at every four-way intersection — decorative noise
+   across the whole grid.
+
+Both fixed by making the grid square. It is now the one un-rounded element in a
+design that rounds everything else, which is also just truer to a crossword.
+
+### The harnesses broke, all at once — and that is the lesson
+Every e2e script selected on **presentation**: `.bg-amber-300` for the cursor,
+`.bg-black` for a block, `.bg-amber-400` for the celebration, `.text-red-600`
+for a wrong letter, `.font-mono.tabular-nums` for the timer, and
+`text=Puzzle Complete!` plus `text=🏆` for the modal. A restyle invalidated all
+of it in one go — `solve.mjs` reported `MODAL=false TROPHY=false` against a
+perfectly working modal, purely because the copy lost an exclamation mark and the
+emoji became an SVG.
+
+The app now carries stable hooks for exactly this — `data-grid`, `data-cell`,
+`data-active`, `data-in-word`, `data-wrong`, `data-celebrating`, `data-timer`,
+`data-complete-modal`, `data-complete-mark`, `data-clue-warning`,
+`data-clue-tally` — and all fourteen harnesses were migrated onto them. **A test
+should not be able to fail because a colour changed.**
+
+### Admin
+Mechanically mapped onto the palette rather than redesigned — it was not part of
+the mockups, and it stays desktop-only. It gains a dark mode for free. Two
+mechanical-pass bugs worth remembering:
+- A negative lookbehind of `(?<![-\\w:])` silently skipped every `hover:` and
+  `focus:` prefixed class, leaving a scatter of old shades behind. `(?<![-\\w])`
+  is the correct guard.
+- Twelve buttons were `bg-accent text-white`. White reads fine on the light
+  accent (`#14776a`) and badly on the dark one (`#43c3ab`) — they need
+  `text-accent-ink`, which flips with the accent.
+
+Admin's *layout* is untouched and could use a proper pass later.
+
+### Verification
+Full suite green after migration: `freshstart`, `solve` plain + check, `revisit`,
+`banner`, `mobile-solve`, `skipfilled` (10 + mobile), `clock`, `staleprogress`
+(5/5), `stability` on 15×15 and 21×21, `admin-cluewarn`. No console or page
+errors anywhere. `tsc --noEmit` and `next build` clean. Screenshots taken of
+library, solver, phone and admin in **both** modes — that is how the two grid
+problems above surfaced.
