@@ -55,6 +55,16 @@ curl -sS "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/puzzles?select=clues_across,clues_do
 
 `admin-cluewarn.mjs` needs the admin password; it is hardcoded as `rebus`.
 
+`skipfilled.mjs` derives its own test words from `/tmp/grid.json`, so it works
+on any puzzle — pass the id as the only argument and fetch the matching grid.
+
+**Positioning trap, if you extend these:** clicking the cell that is *already
+active* toggles direction, and auto-advance means the cursor is usually already
+sitting on the cell you were about to click. `skipfilled.mjs` has a `go()`
+helper that clicks a scratch cell first and then nudges with arrow keys (`MOVE`
+derives direction from the delta) to land on a known cell in a known direction.
+Three tests "failed" against correct code before that was in place.
+
 ## The scripts
 
 | Script | What it checks |
@@ -69,6 +79,7 @@ curl -sS "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/puzzles?select=clues_across,clues_do
 | `final-shots.mjs <id>` | Portrait / landscape / desktop layout check — which chrome is visible where, and screenshots to `/tmp/final-*.png` |
 | `linecount.mjs <id> <label> <w> <h>` | Histogram of how many rendered lines each clue takes in the clue bar, and the text of any that exceed three |
 | `threshold.mjs <all-clues.json>` | Sweeps 320/375/390/430px and reports, per width, the longest clue that fits three lines and the shortest that spills — this is where `CLUE_THREE_LINE_LIMIT` comes from |
+| `skipfilled.mjs [id]` | Auto-advance skipping filled cells/answers: skips a crossing letter, jumps over a completed word, does **not** eject you from an answer you are retyping, leaves Tab/arrows alone, and still comes back for a gap you skipped past |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

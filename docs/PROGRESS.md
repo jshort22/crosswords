@@ -535,3 +535,59 @@ clue is accepted with no `maxlength` attribute. `tsc --noEmit` and
 **Note:** `npx eslint` is broken in this repo — `eslint-config-next/dist` is
 missing from `node_modules`. Pre-existing, reproduces on a clean tree, unrelated
 to this work. Worth an `npm install` fix.
+
+---
+
+## Session 12 — Auto-Advance Skips Filled Answers
+
+NYT behaviour: don't make the solver type over letters they already have.
+
+"Skip filled answers" turned out to be three separable moves, so the scope was
+settled first: **auto-advance only.** Tab, `NEXT_WORD`/`PREV_WORD` and the mobile
+clue-bar arrows are untouched, because they are how you get *back* to an answer
+that is filled in but wrong — if they skipped too, a wrong answer would be
+reachable only by tapping its cell in the grid.
+
+### What ADVANCE does now
+1. Skip forward within the word to the next cell that is still blank, so a
+   crossing letter you already got from the other direction is stepped over.
+2. When nothing is left to fill in the word, go to the next word that still has
+   a blank — landing **on that blank**, not on the word's first cell.
+3. The current word is tested last in that search (`i === clues.length` wraps
+   back to it), so a gap you skipped past earlier gets picked up rather than
+   orphaned.
+4. If every word in the direction is full — the last letter of the puzzle, or a
+   grid finished from the other direction — fall back to the literal next word
+   so the cursor still lands somewhere sensible.
+
+### The one non-obvious part: a `skipFilled` flag
+`inputLetter` dispatches `SET_LETTER` then `ADVANCE`, and the reducer applies
+them in order — so by the time `ADVANCE` runs, **"this word was just completed"
+and "this word is being retyped" look identical**: both are full. The difference
+only exists in the pre-keystroke state, which only `inputLetter` can still see.
+
+So `inputLetter` computes `wordWasComplete` from `wordCells` (already returned by
+the hook) and passes `skipFilled: !wordWasComplete`. When the answer was already
+complete the cursor steps one cell at a time, which is what lets you retype the
+whole thing. Without this, tapping into a wrong 5-letter answer and typing one
+letter would eject you to some unrelated clue — the exact case Show Incorrect
+sends you into, so it would have been hit constantly.
+
+The within-word step also moved from `nextCellInWord` (grid adjacency) to the
+clue's own `cells` list, which is what the next-word branch already used. Same
+result on a well-formed word, one less place for the two to disagree.
+
+### Verification
+New `scripts/e2e/skipfilled.mjs`, 7 assertions, green on both the 15×15 and the
+21×21: skips a filled crossing letter; jumps over a full word to the next one
+with blanks; retyping a complete answer steps through it instead of ejecting;
+Tab and Shift+Tab still walk into a full word; and a reopened gap is still
+picked up. Full existing suite re-run green (`solve.mjs` plain + check,
+`revisit.mjs`, `banner.mjs`, `mobile-solve.mjs`, `stability.mjs`) with no console
+errors. `tsc --noEmit` and `next build` clean.
+
+**Harness trap worth remembering:** three of these tests failed against correct
+code at first, because clicking the cell that is already active toggles
+direction — and with auto-advance the cursor is usually already on the cell you
+were about to click. `go()` in that script clicks a scratch cell first, then
+nudges with arrow keys to force a known direction.
