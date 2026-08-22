@@ -1524,3 +1524,31 @@ progress. `revisit`, `mobile-solve`, `solve check` and `freshstart` all green.
 
 Why the flag cannot go stale in a harmful way: a solved grid is read-only, so it
 cannot become full-and-wrong again, and `handleReset` clears the flag.
+
+### Session 21g — The bottom row was off-centre by three quarters of a key
+Reported as "the Z isn't where it should be". Measured, and it was worse than a
+look-and-feel point: with `ZXCVBNM` flush left and delete on the right, the
+letter block sat **0.77 of a key width left of centre** on every phone tested —
+28px (SE), 35px (13), 38px (Pro Max) — while `ASDFGHJKL` directly above it was at
+**0.0px drift**. So the bottom row disagreed with the app's own row above it, not
+just with iOS, and a thumb aiming at N landed near the B boundary.
+
+That is very likely part of what "sometimes the key doesn't take" was: some of
+those taps did register, as the *wrong letter*, which is much harder to notice
+than nothing happening.
+
+Fixed with an empty `flex-[1.6]` slot on the left mirroring the delete key.
+Re-measured at **0.0px drift on all three phones**, matching the row above.
+
+Deliberately not a button. On a real keyboard that position is shift; nothing
+here needs it, and a key that does nothing is worse than an honest gap. A
+symbols/`123` layer was considered and rejected on the same grounds —
+`inputLetter` only accepts `/^[a-zA-Z]$/` and a cell holds a single letter, so
+every key on that layer would be inert: a dead end that looks like a feature.
+
+Side effect worth having: the bottom row's keys are now the same width as the
+other two rows (37.9px pitch instead of 44.7px), so the keyboard is uniform.
+
+Verified: `key-hits` 15/15 across three phones — the new slot does not reopen any
+dead zone — plus `stability` (76px bar / 342px grid), `mobile-solve`,
+`hold-delete` and `cluebar` all green.

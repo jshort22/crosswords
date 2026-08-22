@@ -90,6 +90,17 @@ export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false 
           // Row 2 is inset the way a real QWERTY keyboard is.
           style={i === 1 ? { paddingLeft: '5%', paddingRight: '5%' } : undefined}
         >
+          {/* The bottom row gets an empty slot on the left, mirroring the delete
+              key on the right. On a real keyboard that position is shift; here
+              nothing needs to live there, but the SPACE does — without it the
+              ZXCVBNM block sat 0.77 of a key width left of centre (measured 28px
+              on an SE, 35px on a 13, 38px on a Pro Max) while the row above was
+              dead centre, so the bottom row's letters were all offset from where
+              muscle memory puts them. Matching delete's flex-[1.6] makes the row
+              symmetric, which centres the letters exactly. Not a button: there is
+              no action worth putting here, and a key that does nothing is worse
+              than an honest gap. */}
+          {i === ROWS.length - 1 && <div aria-hidden className="shrink-0 flex-[1.6] min-w-0" />}
           {row.split('').map(letter => (
             <button
               key={letter}
