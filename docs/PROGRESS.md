@@ -909,3 +909,60 @@ chosen option, plus a 56px sample.
 **Still needs a real iPhone** (unchanged from Session 10): that iOS honours the
 generated route for Add to Home Screen. And remember the icon is cached at
 install time — the shortcut has to be removed and re-added to see this.
+
+---
+
+## Session 16 — Solver Header: Difficulty Out, Timer Toggle In, Title Held Still
+
+Three changes to the same strip of chrome.
+
+### Difficulty badge removed from the solver
+It stays on the puzzle card, where you are choosing what to play. Once you are
+solving, the difficulty tells you nothing you can act on, and the badge was
+costing the grid vertical space. Still shown in the completion modal as a stat.
+Desktop header 95px, mobile 53px; `difficulty.mjs` asserts it appears on the
+library and nowhere in the solver.
+
+### Show timer in the ⋯ menu
+Desktop already had a Timer switch in the header, where there is room; mobile had
+none. `SolverActions` now takes optional `timerVisible` / `onToggleTimer` and the
+menu variant renders a switch. It toggles **visibility only** — the interval is
+untouched, so the clock keeps running while hidden and hiding it to take the
+pressure off doesn't also stop your time. The menu stays open when flipped: it is
+a setting, not an action.
+
+### The title was drifting as the clock ticked
+Reported as the title shifting "on certain numbers". Two causes compounding:
+
+1. **DM Sans has no tabular figures.** The redesign dropped `font-mono` from the
+   timer and relied on `font-variant-numeric: tabular-nums`, which the face does
+   not implement — "1111" measures 20px against 39px for "8888". So the timer's
+   width changed on almost every tick.
+2. **The header's right block has no fixed width on mobile** (only
+   `md:w-64 lg:w-72`), so that resize pushed the `flex-1` centre column.
+
+Measured: **10 distinct title x positions over 11 seconds, 5.6px of drift** on
+mobile. Desktop was already stable, but only by accident of the fixed `md:w-64`.
+
+Fixed by reserving the timer's width (`w-16 md:w-[4.5rem] text-right`). Now one
+title position on both viewports, and verified from `0:00` through `119:59`
+without clipping — `formatTime` has no hour rollover, so a long solve really does
+render three digits of minutes. `tabular-nums` is kept in case the face ever
+gains the feature, but the reserved width is what holds the layout.
+
+### Two harness traps worth recording
+- **The emulated iPhone 13 viewport is 390×664, not 390×844.** Two tests tapped
+  at y=700, which is off screen; the taps silently did nothing and burned the
+  full 30s Playwright timeout inside a `.catch()`, which then read as "the menu
+  won't dismiss". It dismisses fine.
+- **Seeding a progress record while the solver is mounted races its save
+  effect**, which writes every second and wins. Use a fresh context per value.
+
+`clock.mjs`'s reload tolerance went from ≤2s to ≤3s — a loaded machine can spend
+over two seconds on the reload itself, which made it flaky rather than wrong.
+
+### Verification
+`solve` plain, `revisit`, `mobile-solve`, `clock`, `timer-toggle`, `stability`
+(21×21), `skipfilled` (10 + mobile), `title-shift`, `timer-width`, `difficulty` —
+all green, no console or page errors. `tsc --noEmit` and `next build` clean.
+Menu screenshotted in both modes.

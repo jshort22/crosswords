@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import Link from 'next/link'
 import type { CrosswordPuzzle, Clue, SolverState, Direction } from '@/lib/crossword/types'
 import { useCrosswordSolver } from '@/hooks/useCrosswordSolver'
-import { getActiveClue, difficultyLabel, difficultyColors, firstUnfilledCell, formatTime, prevCellInWord } from '@/lib/crossword/utils'
+import { getActiveClue, firstUnfilledCell, formatTime, prevCellInWord } from '@/lib/crossword/utils'
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
@@ -351,20 +351,31 @@ export default function SolverClient({ puzzle }: Props) {
           </Link>
         </div>
 
-        {/* Center: title + difficulty — flex-1 matches the grid column */}
-        <div className="flex-1 min-w-0 py-2 md:py-3 flex flex-col items-center gap-0.5 md:gap-1">
+        {/* Center: title — flex-1 matches the grid column. The difficulty badge
+            used to sit under the title; it's on the puzzle card where you pick a
+            puzzle, and once you're solving it tells you nothing you can act on.
+            Dropping it also gives the grid back the height it was using. */}
+        <div className="flex-1 min-w-0 py-2 md:py-3 flex flex-col items-center justify-center">
           <h1 className="font-display text-sm md:text-lg font-semibold tracking-[-0.02em] text-ink leading-tight text-center truncate max-w-full px-1">
             {puzzle.title}
           </h1>
-          <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${difficultyColors[puzzle.difficulty] ?? 'bg-sunken text-ink-soft'}`}>
-            {difficultyLabel(puzzle.difficulty)}
-          </span>
         </div>
 
         {/* Right: timer + theme + (mobile) actions menu. w-64/72 on desktop
             mirrors the clue aside so the title stays centred over the grid. */}
         <div className="md:w-64 lg:w-72 shrink-0 px-3 py-2 md:px-4 md:py-3 flex items-center md:flex-col md:items-end gap-2 md:gap-1.5 ml-auto">
-          <span data-timer="" className="text-base md:text-xl font-semibold tabular-nums text-ink">
+          {/* Fixed width, right-aligned. DM Sans does NOT ship tabular figures —
+              `tabular-nums` is declared but has no effect ("1111" measures 20px
+              against 39px for "8888"), so the timer's width changed on almost
+              every tick. On mobile the header's right block has no fixed width,
+              so that resize pushed the flex-1 centre column and the title
+              visibly drifted: 10 distinct title positions over 11 seconds.
+              Reserving the width is what actually holds the layout still; the
+              tabular-nums stays in case the face ever gains the feature. */}
+          <span
+            data-timer=""
+            className="w-16 md:w-[4.5rem] shrink-0 text-right text-base md:text-xl font-semibold tabular-nums text-ink"
+          >
             {timerVisible ? formatTime(elapsed) : '--:--'}
           </span>
           <div className="flex items-center gap-2">
@@ -404,6 +415,8 @@ export default function SolverClient({ puzzle }: Props) {
           >
             <SolverActions
               variant="menu"
+              timerVisible={timerVisible}
+              onToggleTimer={() => setTimerVisible(v => !v)}
               onReset={() => { handleReset(); setMenuOpen(false) }}
               onShowIncorrect={() => { showIncorrect(); setMenuOpen(false) }}
             />

@@ -7,6 +7,10 @@ interface Props {
   onShowIncorrect: () => void
   /** 'sidebar' = desktop left panel, 'menu' = mobile header popover. */
   variant: 'sidebar' | 'menu'
+  /** Timer visibility. Only the menu variant renders the switch — desktop has
+   *  its own in the header, where there is room for it. */
+  timerVisible?: boolean
+  onToggleTimer?: () => void
 }
 
 // Reset + Show Incorrect, shared by the desktop sidebar and the mobile menu.
@@ -14,7 +18,7 @@ interface Props {
 // (reset, setElapsed, celebrationPhase, restoredAsSolvedRef, localStorage) is
 // what the completion-flow fix in 4b1c6e3 got right, and it depends on state
 // that lives there. This component only owns its own confirmation UI.
-export default function SolverActions({ onReset, onShowIncorrect, variant }: Props) {
+export default function SolverActions({ onReset, onShowIncorrect, variant, timerVisible, onToggleTimer }: Props) {
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmCheck, setConfirmCheck] = useState(false)
 
@@ -36,6 +40,33 @@ export default function SolverActions({ onReset, onShowIncorrect, variant }: Pro
 
   return (
     <>
+      {isMenu && onToggleTimer && (
+        // Visibility only — the clock keeps running while it is hidden, so
+        // hiding it to take the pressure off does not also stop your time.
+        // The menu deliberately stays open: this is a setting, not an action.
+        <button
+          type="button"
+          role="switch"
+          aria-checked={timerVisible}
+          data-timer-toggle=""
+          onClick={onToggleTimer}
+          className={buttonClass + ' flex items-center justify-between gap-3'}
+        >
+          <span>Show timer</span>
+          <span
+            className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${
+              timerVisible ? 'bg-accent' : 'bg-line'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
+                timerVisible ? 'translate-x-4' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+        </button>
+      )}
+
       {!confirmReset ? (
         <button onClick={() => setConfirmReset(true)} className={buttonClass}>
           Reset puzzle

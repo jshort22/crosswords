@@ -89,6 +89,9 @@ Three tests "failed" against correct code before that was in place.
 | `staleprogress.mjs` | Seeds saved records that no longer match the grid (too small, too big, wrong shape, null) and checks the page still renders. A mismatched record used to throw on render *and* on every reload after it |
 | `clock.mjs [id]` | Timer across a session: ticks while in the puzzle, holds while you are out of it, resumes on return, survives a reload, stays monotonic across repeated exits |
 | `arrow-skip.mjs` | Seeds the top rows of a grid, then walks the clue-bar arrow 16 times and counts how many presses land on an answer that is already complete. This is the measurement that changed the arrows' behaviour: 13/16 before, 0/16 after |
+| `title-shift.mjs` | Records every distinct x position of the puzzle title over ~11s on mobile and desktop, and reports whether the timer's font actually has tabular figures. Should print exactly one position per viewport |
+| `timer-toggle.mjs` | The ⋯ menu's Show timer switch: hides the clock face, keeps the menu open, and — the point — the clock still accrues while hidden |
+| `difficulty.mjs` | Difficulty appears on the library and nowhere in the solver, on both viewports |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

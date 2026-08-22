@@ -51,7 +51,7 @@ check('advanced again', r1 - r0 >= 3 && r1 - r0 <= 6, `${r0}s -> ${r1}s`)
 console.log(`\n--- 4. survives a reload mid-solve ---`)
 const b0 = secs(await T()); await page.reload({ waitUntil: 'networkidle' }); await page.waitForSelector(SEL); await wait(300)
 const b1 = secs(await T())
-check('picked up where it left off', Math.abs(b1 - b0) <= 2, `${b0}s -> ${b1}s`)
+check('picked up where it left off', Math.abs(b1 - b0) <= 3, `${b0}s -> ${b1}s`)  // a loaded machine can spend >2s on the reload itself
 
 console.log(`\n--- 5. two exits in a row do not double-count or reset ---`)
 const c0 = secs(await T())
