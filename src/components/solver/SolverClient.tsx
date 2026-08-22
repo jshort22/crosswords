@@ -29,10 +29,46 @@ function saveProgress(puzzleId: string, cells: SolverState['cells'], elapsed: nu
   } catch {}
 }
 
-function loadProgress(puzzleId: string): { cells: SolverState['cells']; elapsed: number } | null {
+/**
+ * A saved record is restored wholesale into `state.cells`, and several reducer
+ * cases (CHECK_COMPLETE, SHOW_INCORRECT, RESTORE_SOLVED) walk `state.cells`
+ * while indexing `puzzle.grid` at the same coordinates. So a record whose shape
+ * no longer matches the grid does not merely show stale letters — it throws on
+ * render, and because the bad record stays in localStorage, EVERY reload throws
+ * too. The page is dead for that visitor until they clear site data.
+ *
+ * Editing a published puzzle's grid in admin is enough to produce one, so this
+ * validates before restoring and drops anything that doesn't fit. A record for a
+ * different grid is worthless anyway; keeping it only re-triggers the crash.
+ */
+function loadProgress(
+  puzzleId: string,
+  rows: number,
+  cols: number
+): { cells: SolverState['cells']; elapsed: number } | null {
   try {
     const raw = localStorage.getItem(storageKey(puzzleId))
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const cells = parsed?.cells
+    const fits =
+      Array.isArray(cells) &&
+      cells.length === rows &&
+      cells.every(
+        (row: unknown) =>
+          Array.isArray(row) &&
+          row.length === cols &&
+          row.every(cell => cell && typeof cell.userLetter === 'string')
+      )
+    if (!fits) {
+      localStorage.removeItem(storageKey(puzzleId))
+      return null
+    }
+    const elapsed =
+      typeof parsed.elapsed === 'number' && Number.isFinite(parsed.elapsed) && parsed.elapsed >= 0
+        ? parsed.elapsed
+        : 0
+    return { cells, elapsed }
   } catch {
     return null
   }
@@ -72,7 +108,7 @@ export default function SolverClient({ puzzle }: Props) {
       }
     } catch {}
 
-    const saved = loadProgress(puzzle.id)
+    const saved = loadProgress(puzzle.id, puzzle.rows, puzzle.cols)
     if (saved) {
       restore(saved.cells, Date.now() - saved.elapsed * 1000)
       setElapsed(saved.elapsed)

@@ -643,3 +643,77 @@ practice, not working. Every assertion drove the cursor with `Tab` or by typing,
 and asserted on *auto-advance*; nothing asserted where the arrows and clue clicks
 put the cursor. A green suite over one code path says nothing about the four
 others that do the same job.
+
+---
+
+## Session 13 — Fresh-Start and Clock Audit
+
+Two checks asked for: that no puzzle starts out filled in for a new visitor, and
+that the clock behaves across leaving and re-entering a puzzle in one session.
+
+### Nothing starts filled in — but a mismatched save was fatal
+
+`initState` builds every cell with `userLetter: ''` and `CrosswordGrid` renders
+only `userLetter`, never `grid[r][c].letter`, so a first visit cannot show
+answers. Confirmed empirically by `freshstart.mjs` across all three puzzles,
+desktop and mobile, in **pristine** browser contexts — 0 of 225 / 0 of 441 cells
+filled, cursor on the first white cell, no modal, no console errors. (Worth doing
+in a fresh context: every other harness here calls `localStorage.clear()` *after*
+a load, which is not the same condition.)
+
+The audit did turn up a real bug next door. `loadProgress` restored a saved
+record **wholesale with no validation**, and `CHECK_COMPLETE`, `SHOW_INCORRECT`
+and `RESTORE_SOLVED` all walk `state.cells` while indexing `puzzle.grid` at the
+same coordinates. So a record whose shape no longer matched the grid:
+
+| Seeded record | Before |
+|---|---|
+| 5×5 on a 15×15 | rendered, but showed 20 letters the visitor never typed |
+| 21×21 on a 15×15 | **crash** — `Cannot read properties of undefined (reading 'type')` |
+| `cells: 'nope'` | **crash** — `state.cells.every is not a function` |
+| `cells: null` | **crash** — `Cannot read properties of null (reading 'every')` |
+
+And because the bad record stayed in localStorage, *every reload crashed too* —
+the puzzle was permanently dead for that visitor short of clearing site data.
+**Editing a published puzzle's grid in admin is enough to cause it**, which is a
+live risk given there is an edit page.
+
+`loadProgress` now validates dimensions and cell shape and deletes anything that
+doesn't fit — a record for a different grid is worthless anyway, and keeping it
+only re-triggers the crash. All five seeded cases now render an empty grid; a
+valid same-size record still restores all 187 letters, so the guard is not
+over-rejecting.
+
+### The clock is correct
+
+`clock.mjs`, all passing:
+
+| Behaviour | Result |
+|---|---|
+| Ticks while in the puzzle | 0s → 5s over 5s |
+| Holds while out of it | left at 5s, back at 6s after a 6s absence (a running clock would read ~11s) |
+| Resumes on return | 6s → 10s over 4s |
+| Survives a reload | 10s → 10s |
+| Monotonic across repeated exits | 10s → 11s across two 2.5s absences, no reset |
+| Stops for good once solved | covered by `solve.mjs` TIMER_STOPPED and `revisit.mjs` frozen |
+
+It works because the timer is a plain `setInterval` incrementer on a mounted
+component: leaving the puzzle unmounts `SolverClient` and the interval is torn
+down, so "exit pauses it" is structural rather than something that needed
+building. Progress (cells + elapsed) is written every second, so at most one
+second is lost on the way out.
+
+**Not covered by emulation:** backgrounding the app rather than navigating away.
+There is no `visibilitychange` handling, so that case relies on the browser's own
+throttling — on iOS standalone JS is suspended, which pauses it as wanted; a
+backgrounded desktop tab is throttled rather than stopped, so it may creep by a
+few seconds. Only a real device settles it.
+
+### One judgement call left open
+Opening a puzzle and *only looking at it* starts the clock and persists it — 5
+seconds of browsing is banked and shown on the next visit, and an empty progress
+record is written before a single letter is typed. NYT behaves the same way
+(the clock starts when the puzzle opens), and nothing in the UI surfaces that
+record — `PuzzleCardActions` reads only the `crossword-solved-` key, so a card
+never shows a peeked puzzle as started. Left as is; gating the clock on the first
+letter is a one-line change if that is preferred.
