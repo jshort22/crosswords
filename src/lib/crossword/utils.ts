@@ -218,6 +218,44 @@ export function prevCellInWord(
   return [row, col]
 }
 
+/**
+ * Where backspace should go when the cursor sits on an empty cell.
+ *
+ * `prevCellInWord` deliberately stops at the word's edge, which is right for
+ * movement *within* a word but left backspace with nowhere to go: at a word's
+ * first cell it returned that same cell, so holding the key at a black square
+ * or the grid edge did nothing at all and deleting "backwards through the
+ * puzzle" stopped dead at every boundary. ADVANCE has a word-jump for exactly
+ * this case; this is its mirror.
+ *
+ * At a word's first cell we step to the LAST cell of the previous clue in the
+ * same direction, wrapping at the first clue the way ADVANCE wraps at the last.
+ * Unlike Tab, this does **not** skip over words that have nothing to delete:
+ * backspace is destructive, so it walks the grid one cell at a time rather than
+ * teleporting the cursor into a distant answer and erasing it. Held down, the
+ * key auto-repeats, so crossing an empty stretch costs nothing.
+ *
+ * A lone white cell with no clue in this direction has no word to leave; the
+ * cursor stays put there.
+ */
+export function prevCellForBackspace(
+  puzzle: CrosswordPuzzle,
+  row: number,
+  col: number,
+  direction: 'across' | 'down'
+): [number, number] {
+  const [pr, pc] = prevCellInWord(puzzle.grid, row, col, direction)
+  if (pr !== row || pc !== col) return [pr, pc]
+
+  const clues = direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
+  if (clues.length === 0) return [row, col]
+  const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === row && c2 === col))
+  if (idx === -1) return [row, col]
+
+  const prevClue = clues[(idx - 1 + clues.length) % clues.length]
+  return prevClue.cells[prevClue.cells.length - 1] ?? [row, col]
+}
+
 
 export function difficultyLabel(d: number): string {
   return ['', 'Beginner', 'Easy', 'Medium', 'Hard', 'Expert'][d] ?? 'Unknown'

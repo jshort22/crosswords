@@ -966,3 +966,61 @@ over two seconds on the reload itself, which made it flaky rather than wrong.
 (21×21), `skipfilled` (10 + mobile), `title-shift`, `timer-width`, `difficulty` —
 all green, no console or page errors. `tsc --noEmit` and `next build` clean.
 Menu screenshotted in both modes.
+
+---
+
+## Session 17 — Backspace Was Trapped Inside One Word
+
+Reported as: backspace works within a word, then gets stuck at the black
+squares. Holding the key should keep deleting the last letter in whatever order
+you are going.
+
+### The cause
+`RETREAT` derived its target from `prevCellInWord`, which **deliberately** stops
+at the word's edge — it returns the same cell when there is no previous white
+cell in the word. That is correct for movement *within* a word, and it was the
+right fix for an earlier bug where hand-rolled `-1` arithmetic cleared the
+preceding BLACK cell's record. But it left backspace with nowhere to go: at a
+word's first cell the cursor could not move, so nothing more was ever deleted.
+
+`ADVANCE` has a whole word-jumping path for exactly this situation at the *end*
+of a word. `RETREAT` never got the mirror image.
+
+### Measured, before the fix
+Typed 13 letters across three consecutive across words (auto-advance carries you
+between them), then pressed Backspace 23 times: **13 letters still on the grid,
+one distinct cursor position.** Not "mostly working" — completely inert, because
+auto-advance leaves the cursor on the *first* cell of the next word, which is
+the exact spot where the old code was frozen.
+
+### The fix
+`prevCellForBackspace(puzzle, row, col, direction)` in `utils.ts`. Within a word
+it defers to `prevCellInWord` unchanged; at a word's first cell it steps to the
+**last cell of the previous clue** in the same direction, wrapping at the first
+clue the way ADVANCE wraps at the last.
+
+Both `RETREAT` and `inputBackspace` call it. They must agree on the target —
+one moves the cursor, the other clears the letter — which is why it is one
+helper and not two pieces of arithmetic.
+
+### One judgement call: it does NOT skip
+Tab and the clue-bar arrows skip answers that are already complete. Backspace
+deliberately does not skip words with nothing to delete. **Backspace is
+destructive**, and skipping would mean teleporting the cursor into a distant
+answer and immediately erasing its last letter. Walking one cell at a time costs
+nothing in practice, because the key auto-repeats when held — which is how the
+bug was reported in the first place.
+
+### The theoretical hole, left open on purpose
+A white cell with no clue in its direction (a one-letter "word" between a black
+square and the grid edge) has no word to leave, so the cursor stays. Checked all
+three puzzles in the library: **zero such cells** — standard construction
+forbids one-letter answers. `ADVANCE` treats the same case identically. Left
+documented rather than invented around.
+
+### Verification
+New `scripts/e2e/backspace.mjs` — 14 assertions. **Confirmed it fails against
+the pre-fix code (6 failures), then passes**, which is the only reason to trust
+it. Regression suite re-run green: `skipfilled` (10), `arrow-skip` (0/16),
+`solve` plain, `revisit`, `mobile-solve`, `banner`, `staleprogress`,
+`freshstart`. No console or page errors. `tsc --noEmit` and `next build` clean.
