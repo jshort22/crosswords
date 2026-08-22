@@ -1494,3 +1494,33 @@ letter is a nudge — the heading and the "Keep trying" button carry it fine, an
 the completion modal's trophy is what should be the only badge in the solver.
 Nothing depended on the icon: `wrong-modal` 15/15, `banner`, `solve` and `a11y`
 all still green.
+
+### Session 21f — Confirming the new modal did not disturb finishing
+Asked for directly, and the right thing to check: the wrong-answer modal sits in
+the middle of the solve, so the risk is that dismissing it leaves the completion
+flow in a different state.
+
+`completion-integrity.mjs` runs the same assertions down two paths — a clean
+solve, and a solve that goes **through** the modal (fill with one wrong letter,
+dismiss, fix, complete) — and compares the end states directly rather than
+checking each in isolation. **23/23, and the two end states are identical:**
+
+```
+A={"celebrating":1,"completeModal":1,"trophy":1,"wrongModalStillUp":0,
+   "progress":null,"readOnly":true,"goldAfterEdit":1,"frozen":true}
+B= (same)
+```
+
+Covered in both: gold sweep runs, trophy modal appears, the timer freezes (read
+three times — at completion, after the celebration, and two seconds later), the
+solved record is written with an elapsed time, the in-progress record is cleared,
+the grid rejects further input, and it stays gold after an attempted edit.
+
+Also confirmed the leftover `crossword-wrongshown` flag is inert: after solving
+through the modal it holds `"1"`, and revisiting the solved puzzle holds the gold
+without replaying the sweep, does not re-show the completion modal, does not
+raise the wrong-answer modal, keeps the solved record and writes no junk
+progress. `revisit`, `mobile-solve`, `solve check` and `freshstart` all green.
+
+Why the flag cannot go stale in a harmful way: a solved grid is read-only, so it
+cannot become full-and-wrong again, and `handleReset` clears the flag.
