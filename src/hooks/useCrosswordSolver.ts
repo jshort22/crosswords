@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect } from 'react'
 import type { CrosswordPuzzle, SolverState, Direction } from '@/lib/crossword/types'
-import { getWordCells, nextCellInWord, prevCellInWord } from '@/lib/crossword/utils'
+import { firstUnfilledCell, getWordCells, nextCellInWord, prevCellInWord } from '@/lib/crossword/utils'
 
 type Action =
   | { type: 'SET_LETTER'; row: number; col: number; letter: string }
@@ -11,7 +11,7 @@ type Action =
   | { type: 'SET_DIRECTION'; direction: Direction }
   | { type: 'TOGGLE_DIRECTION' }
   | { type: 'MOVE'; dr: number; dc: number }
-  | { type: 'ADVANCE' }
+  | { type: 'ADVANCE'; skipFilled: boolean }
   | { type: 'RETREAT' }
   | { type: 'NEXT_WORD' }
   | { type: 'PREV_WORD' }
@@ -105,34 +105,88 @@ function reducer(state: SolverState, action: Action, puzzle: CrosswordPuzzle): S
       return { ...state, activeRow: newRow, activeCol: newCol, direction: dir }
     }
     case 'ADVANCE': {
-      const [nr, nc] = nextCellInWord(puzzle.grid, state.activeRow, state.activeCol, state.direction)
-      if (nr !== state.activeRow || nc !== state.activeCol) {
-        return { ...state, activeRow: nr, activeCol: nc }
-      }
-      // End of word — jump to first cell of next word
       const clues = state.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
-      const currentIdx = clues.findIndex(c => c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol))
-      if (currentIdx === -1) return state
-      const nextClue = clues[(currentIdx + 1) % clues.length]
-      return { ...state, activeRow: nextClue.cells[0][0], activeCol: nextClue.cells[0][1] }
+      const currentIdx = clues.findIndex(c =>
+        c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol)
+      )
+
+      // A single white cell between two blacks has no clue in this direction,
+      // so there is no word to walk — just take the plain grid step.
+      if (currentIdx === -1) {
+        const [nr, nc] = nextCellInWord(puzzle.grid, state.activeRow, state.activeCol, state.direction)
+        return nr === state.activeRow && nc === state.activeCol
+          ? state
+          : { ...state, activeRow: nr, activeCol: nc }
+      }
+
+      const cells = clues[currentIdx].cells
+      const pos = cells.findIndex(([r, c]) => r === state.activeRow && c === state.activeCol)
+      const isBlank = ([r, c]: [number, number]) => !state.cells[r][c].userLetter
+      const nextWordStart = () => {
+        const next = clues[(currentIdx + 1) % clues.length]
+        const [r, c] = firstUnfilledCell(next, state.cells)
+        return { ...state, activeRow: r, activeCol: c }
+      }
+
+      // Within the word. skipFilled is false when the answer was already
+      // complete before this keystroke — the solver is correcting it, not
+      // filling it in — so step one cell at a time, which is what lets them
+      // retype the whole thing. Skipping there would eject them after a single
+      // letter. Note this governs movement WITHIN the word only: once the word
+      // is exhausted both cases take the same jump below, because "the word I
+      // was retyping is finished" is no reason to land on a full clue.
+      const within = action.skipFilled
+        ? cells.slice(pos + 1).find(isBlank)
+        : cells[pos + 1]
+      if (within) return { ...state, activeRow: within[0], activeCol: within[1] }
+
+      // Nothing left to fill in this word: move to the next word that still has
+      // a blank, landing on that blank rather than on the word's first cell.
+      // The current word is tested last (i === clues.length wraps back to it),
+      // so a gap left behind earlier in it gets picked up instead of orphaned.
+      for (let i = 1; i <= clues.length; i++) {
+        const clue = clues[(currentIdx + i) % clues.length]
+        const blank = clue.cells.find(isBlank)
+        if (blank) return { ...state, activeRow: blank[0], activeCol: blank[1] }
+      }
+
+      // Every word in this direction is full — the last letter of the puzzle, or
+      // a grid completed from the other direction. Fall back to the literal next
+      // word so the cursor still lands somewhere sensible.
+      return nextWordStart()
     }
     case 'RETREAT': {
       const [nr, nc] = prevCellInWord(puzzle.grid, state.activeRow, state.activeCol, state.direction)
       return { ...state, activeRow: nr, activeCol: nc }
     }
-    case 'NEXT_WORD': {
-      const clues = state.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
-      const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol))
-      if (idx === -1) return state
-      const next = clues[(idx + 1) % clues.length]
-      return { ...state, activeRow: next.cells[0][0], activeCol: next.cells[0][1] }
-    }
+    // Tab / Shift+Tab. These SKIP answers that are already complete: walking
+    // every clue sounds harmless but measured out at 13 of 16 presses landing on
+    // a finished answer once the top of a grid was filled in, which makes the
+    // arrows useless exactly when you most want them.
+    //
+    // A filled-but-wrong answer therefore is not reachable this way — it stays
+    // reachable by tapping its cell in the grid, and by the clue list, which
+    // deliberately still visits every clue. Fast navigation skips; deliberate
+    // navigation does not.
+    case 'NEXT_WORD':
     case 'PREV_WORD': {
       const clues = state.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
       const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol))
       if (idx === -1) return state
-      const prev = clues[(idx - 1 + clues.length) % clues.length]
-      return { ...state, activeRow: prev.cells[0][0], activeCol: prev.cells[0][1] }
+      const delta = action.type === 'NEXT_WORD' ? 1 : -1
+      const at = (k: number) => clues[((k % clues.length) + clues.length) % clues.length]
+      // Default to the immediate neighbour, so that once EVERY answer in this
+      // direction is full the arrows still move and you can review the grid.
+      let target = at(idx + delta)
+      for (let i = 1; i <= clues.length; i++) {
+        const candidate = at(idx + delta * i)
+        if (candidate.cells.some(([r, c]) => !state.cells[r]?.[c]?.userLetter)) {
+          target = candidate
+          break
+        }
+      }
+      const [r, c] = firstUnfilledCell(target, state.cells)
+      return { ...state, activeRow: r, activeCol: c }
     }
     case 'RESTORE':
       return { ...state, cells: action.cells, startTime: action.startTime }
@@ -217,7 +271,10 @@ export function useCrosswordSolver(puzzle: CrosswordPuzzle) {
     dispatch({ type: 'MOVE', dr, dc })
   }, [])
 
-  const advance = useCallback(() => dispatch({ type: 'ADVANCE' }), [])
+  const advance = useCallback(
+    (skipFilled: boolean) => dispatch({ type: 'ADVANCE', skipFilled }),
+    []
+  )
   const retreat = useCallback(() => dispatch({ type: 'RETREAT' }), [])
   const nextWord = useCallback(() => dispatch({ type: 'NEXT_WORD' }), [])
   const prevWord = useCallback(() => dispatch({ type: 'PREV_WORD' }), [])

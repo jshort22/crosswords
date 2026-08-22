@@ -61,30 +61,30 @@ export default function EditPuzzleClient({ puzzle }: Props) {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-sunken">
+      <header className="bg-surface border-b border-line">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <a
               href="/admin"
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink border border-line rounded-lg px-3 py-1.5 transition-colors shrink-0"
             >
               ← Admin
             </a>
-            <h1 className="text-xl font-bold text-gray-900">{puzzle.title}</h1>
+            <h1 className="text-xl font-bold text-ink">{puzzle.title}</h1>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => handleSave()}
               disabled={saving}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40"
+              className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-ink hover:bg-sunken transition-colors disabled:opacity-40"
             >
               {saving ? 'Saving…' : 'Save Draft'}
             </button>
             <button
               onClick={() => handleSave(!puzzle.is_published)}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-500 text-white text-sm font-semibold transition-colors disabled:opacity-40"
+              className="px-4 py-2 rounded-lg bg-accent hover:opacity-90 text-accent-ink text-sm font-semibold transition-colors disabled:opacity-40"
             >
               {puzzle.is_published ? 'Unpublish' : 'Publish'}
             </button>
@@ -94,23 +94,23 @@ export default function EditPuzzleClient({ puzzle }: Props) {
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
+          <div className="bg-danger-soft border border-danger rounded-xl p-3 text-sm text-danger">{error}</div>
         )}
 
         {/* Metadata */}
-        <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <h2 className="font-semibold text-gray-800">Details</h2>
+        <section className="bg-surface rounded-xl border border-line p-5 space-y-4">
+          <h2 className="font-semibold text-ink">Details</h2>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Title</label>
+            <label className="block text-xs text-ink-soft mb-1">Title</label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-2">Difficulty</label>
+            <label className="block text-xs text-ink-soft mb-2">Difficulty</label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map(d => (
                 <button
@@ -118,8 +118,8 @@ export default function EditPuzzleClient({ puzzle }: Props) {
                   onClick={() => setDifficulty(d)}
                   className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-colors ${
                     difficulty === d
-                      ? 'bg-amber-400 border-amber-400 text-white'
-                      : 'border-gray-200 text-gray-600 hover:border-amber-300'
+                      ? 'bg-accent border-accent text-accent-ink'
+                      : 'border-line text-ink-soft hover:border-accent'
                   }`}
                 >
                   {difficultyLabel(d)}
@@ -130,16 +130,16 @@ export default function EditPuzzleClient({ puzzle }: Props) {
         </section>
 
         {/* Grid */}
-        <section className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-800 mb-4">Grid</h2>
+        <section className="bg-surface rounded-xl border border-line p-5">
+          <h2 className="font-semibold text-ink mb-4">Grid</h2>
           <div className="overflow-x-auto">
             <GridEditor grid={grid} onChange={setGrid} />
           </div>
         </section>
 
         {/* Clues */}
-        <section className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-800 mb-4">Clues</h2>
+        <section className="bg-surface rounded-xl border border-line p-5">
+          <h2 className="font-semibold text-ink mb-4">Clues</h2>
           <ClueEditor
             grid={grid}
             cluesAcross={cluesAcross}
@@ -152,14 +152,14 @@ export default function EditPuzzleClient({ puzzle }: Props) {
         <div className="flex justify-end gap-3 pb-8">
           <button
             onClick={() => router.push('/admin')}
-            className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium text-sm"
+            className="px-5 py-2.5 rounded-xl border border-line text-ink-soft hover:bg-sunken font-medium text-sm"
           >
             Cancel
           </button>
           <button
             onClick={() => handleSave()}
             disabled={saving}
-            className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold text-sm disabled:opacity-40"
+            className="px-5 py-2.5 rounded-xl bg-accent hover:opacity-90 text-accent-ink font-semibold text-sm disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </button>

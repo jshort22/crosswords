@@ -7,6 +7,10 @@ interface Props {
   onShowIncorrect: () => void
   /** 'sidebar' = desktop left panel, 'menu' = mobile header popover. */
   variant: 'sidebar' | 'menu'
+  /** Timer visibility. Only the menu variant renders the switch — desktop has
+   *  its own in the header, where there is room for it. */
+  timerVisible?: boolean
+  onToggleTimer?: () => void
 }
 
 // Reset + Show Incorrect, shared by the desktop sidebar and the mobile menu.
@@ -14,36 +18,62 @@ interface Props {
 // (reset, setElapsed, celebrationPhase, restoredAsSolvedRef, localStorage) is
 // what the completion-flow fix in 4b1c6e3 got right, and it depends on state
 // that lives there. This component only owns its own confirmation UI.
-export default function SolverActions({ onReset, onShowIncorrect, variant }: Props) {
+export default function SolverActions({ onReset, onShowIncorrect, variant, timerVisible, onToggleTimer }: Props) {
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmCheck, setConfirmCheck] = useState(false)
 
   const isMenu = variant === 'menu'
 
   const buttonClass =
-    'w-full rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 ' +
-    'shadow-sm text-gray-700 dark:text-gray-200 font-medium transition-colors ' +
+    'w-full rounded-full bg-surface shadow-key text-ink font-medium transition-colors ' +
     (isMenu
-      ? 'text-sm px-3 py-3 text-left active:bg-gray-100 dark:active:bg-gray-600'
-      : 'text-sm px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-600')
+      ? 'text-sm px-4 py-3.5 text-left active:bg-sunken'
+      : 'text-[13px] px-4 py-3 text-left hover:bg-sunken')
 
   const confirmYes =
-    'flex-1 rounded bg-orange-400 text-white font-semibold transition-colors ' +
-    (isMenu ? 'text-xs py-2 active:bg-orange-500' : 'text-xs py-1 hover:bg-orange-500')
+    'flex-1 rounded-full bg-accent text-accent-ink font-bold transition-opacity hover:opacity-90 ' +
+    (isMenu ? 'text-xs py-2.5' : 'text-xs py-2')
 
   const confirmNo =
-    'flex-1 rounded border border-gray-200 text-gray-600 transition-colors ' +
-    (isMenu ? 'text-xs py-2 active:bg-gray-100' : 'text-xs py-1 hover:bg-gray-50')
+    'flex-1 rounded-full bg-sunken text-ink-soft transition-colors ' +
+    (isMenu ? 'text-xs py-2.5' : 'text-xs py-2')
 
   return (
     <>
+      {isMenu && onToggleTimer && (
+        // Visibility only — the clock keeps running while it is hidden, so
+        // hiding it to take the pressure off does not also stop your time.
+        // The menu deliberately stays open: this is a setting, not an action.
+        <button
+          type="button"
+          role="switch"
+          aria-checked={timerVisible}
+          data-timer-toggle=""
+          onClick={onToggleTimer}
+          className={buttonClass + ' flex items-center justify-between gap-3'}
+        >
+          <span>Show timer</span>
+          <span
+            className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${
+              timerVisible ? 'bg-accent' : 'bg-line'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
+                timerVisible ? 'translate-x-4' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+        </button>
+      )}
+
       {!confirmReset ? (
         <button onClick={() => setConfirmReset(true)} className={buttonClass}>
-          Reset Puzzle
+          Reset puzzle
         </button>
       ) : (
-        <div className="border border-orange-200 bg-orange-50 rounded-lg p-2 space-y-2">
-          <p className="text-xs text-orange-700 font-medium">Reset all answers?</p>
+        <div className="bg-sunken rounded-2xl p-3 space-y-2">
+          <p className="text-xs text-ink-soft font-medium">Reset all answers?</p>
           <div className="flex gap-1.5">
             <button
               onClick={() => {
@@ -63,11 +93,11 @@ export default function SolverActions({ onReset, onShowIncorrect, variant }: Pro
 
       {!confirmCheck ? (
         <button onClick={() => setConfirmCheck(true)} className={buttonClass}>
-          Show Incorrect
+          Show incorrect
         </button>
       ) : (
-        <div className="border border-orange-200 bg-orange-50 rounded-lg p-2 space-y-2">
-          <p className="text-xs text-orange-700 font-medium">Highlight wrong letters?</p>
+        <div className="bg-sunken rounded-2xl p-3 space-y-2">
+          <p className="text-xs text-ink-soft font-medium">Highlight wrong letters?</p>
           <div className="flex gap-1.5">
             <button
               onClick={() => {

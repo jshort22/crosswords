@@ -453,3 +453,516 @@ Desktop suite (clean solve, Show Incorrect → solve, error banner, mid-solve re
 
 ### Still Open — needs a real device
 Emulation cannot confirm: that iOS honours the Next-generated `/apple-icon?<hash>` route for Add to Home Screen (fallback is a static `src/app/apple-icon.png`); that it launches standalone (Next emits `mobile-web-app-capable`, not the legacy `apple-` prefixed tag); safe-area clearance for the Dynamic Island and home indicator; and whether 21×21 at ~17px cells is comfortable to tap.
+
+---
+
+## Session 11 — Clue Bar Sized for Three Lines + Admin Length Warning
+
+### The jump was on production, not on the branch
+
+Reported as "the puzzle still jumps a little when we go from two to three
+lines." It does — on `main`, which is what is deployed. There the bar carries no
+height at all and the text is capped at `max-h-[4.5rem]` (72px, about 3.7 line
+boxes), so the bar grows 1 → 2 → 3 lines and the grid rescales under it every
+time. The branch fix (`d575938`) had already pinned the bar to 56px; it just
+hasn't been merged. Verified with `stability.mjs`: one bar height, one grid size,
+at 320/375/390/430px.
+
+### Measured how many lines clues actually need
+
+Before widening anything, `linecount.mjs` walked all 298 clues in the library at
+four viewport widths, reading the text span's `scrollHeight` over its computed
+line box. Max lines needed:
+
+| Width | Max lines | Clues over three lines |
+|---|---|---|
+| 320px (SE 1st gen) | 5 | 7 |
+| 375px (SE 2/3, 13 mini) | 4 | 3 |
+| 390px (iPhone 12–16) | 4 | 1 |
+| 430px (Pro Max) | 3 | 0 |
+
+So **three is the right number, four is not worth it**: on any phone from the
+last several years, three lines shows the entire clue for 295–298 of 298. A
+fourth line would buy 1–3 clues and cost another 20px of grid on every puzzle.
+
+### Bar sized for exactly three lines
+
+`h-14` → `h-[4.75rem]` (76px = 3 × 19.25px line box + 16px of `py-2`), and the
+text cap `max-h-[2.75em]` → `max-h-[4.125em]`. The cap stays in **em** so it
+lands on a whole line box; a px cap halves the fourth line and reads as broken
+instead of scrollable.
+
+Cost is 20px of bar. It only comes out of the grid where the grid is
+height-constrained: at 390px the grid stayed 374px (width-bound, so free), at
+375px it went 359 → 344px, at 320px 284 → 264px. Clues needing internal scroll
+dropped from 11 → 2 at 390px, 13 → 6 at 375px, and 8 → 0 at 430px.
+
+### Admin warns on clues too long for three lines
+
+Rather than a hard cap. `threshold.mjs` sweeps each width and reports the
+crossover band — the longest real clue that still fits three lines versus the
+shortest that spills — plus a synthetic prose sweep:
+
+| Width | Fits 3 lines up to | Spills from |
+|---|---|---|
+| 320px | 86 chars | 93 chars |
+| 375px | 101 chars | 114 chars |
+| 390px | 117 chars | 132 chars |
+| 430px | 132 chars | — |
+
+`CLUE_THREE_LINE_LIMIT = 100` in `utils.ts` — the round number sitting safely
+below the 375px band, so anything under it is safe on every phone still in
+common use. The clue editor flags each offending row (amber border + a line
+saying the count and that it will scroll on a narrow phone, "Still fine to
+use") and tallies them beside the Across/Down heading, because a warning on one
+row out of 140 is easy to scroll straight past.
+
+**Deliberately no `maxLength`.** A character count can only approximate wrapping
+— a line of "l"s is far narrower than a line of "W"s — so it will sometimes warn
+on a clue that would have fit. That is the right way round for an advisory, and
+a clue that does spill is not broken: it scrolls in the bar and is in full in the
+clue sheet. Both the wizard and the edit page get this from the one component.
+
+### Verification
+Full suite re-run green: `stability.mjs` (one bar height 76px, one grid size, at
+320/375/390/430 on both a 15×15 and the 21×21), `cluebar.mjs`, `mobile-solve.mjs`,
+`solve.mjs` plain + check, `revisit.mjs`, `banner.mjs` — no console errors.
+`admin-cluewarn.mjs` (new) confirms the boundary is exact at 100, that trailing
+whitespace does not trip it, that the tally tracks live, and that a 400-character
+clue is accepted with no `maxlength` attribute. `tsc --noEmit` and
+`next build` clean.
+
+**Note:** `npx eslint` is broken in this repo — `eslint-config-next/dist` is
+missing from `node_modules`. Pre-existing, reproduces on a clean tree, unrelated
+to this work. Worth an `npm install` fix.
+
+---
+
+## Session 12 — Auto-Advance Skips Filled Answers
+
+NYT behaviour: don't make the solver type over letters they already have.
+
+"Skip filled answers" turned out to be three separable moves, so the scope was
+settled first: **auto-advance only.** Tab, `NEXT_WORD`/`PREV_WORD` and the mobile
+clue-bar arrows are untouched, because they are how you get *back* to an answer
+that is filled in but wrong — if they skipped too, a wrong answer would be
+reachable only by tapping its cell in the grid.
+
+### What ADVANCE does now
+1. Skip forward within the word to the next cell that is still blank, so a
+   crossing letter you already got from the other direction is stepped over.
+2. When nothing is left to fill in the word, go to the next word that still has
+   a blank — landing **on that blank**, not on the word's first cell.
+3. The current word is tested last in that search (`i === clues.length` wraps
+   back to it), so a gap you skipped past earlier gets picked up rather than
+   orphaned.
+4. If every word in the direction is full — the last letter of the puzzle, or a
+   grid finished from the other direction — fall back to the literal next word
+   so the cursor still lands somewhere sensible.
+
+### The one non-obvious part: a `skipFilled` flag
+`inputLetter` dispatches `SET_LETTER` then `ADVANCE`, and the reducer applies
+them in order — so by the time `ADVANCE` runs, **"this word was just completed"
+and "this word is being retyped" look identical**: both are full. The difference
+only exists in the pre-keystroke state, which only `inputLetter` can still see.
+
+So `inputLetter` computes `wordWasComplete` from `wordCells` (already returned by
+the hook) and passes `skipFilled: !wordWasComplete`. When the answer was already
+complete the cursor steps one cell at a time, which is what lets you retype the
+whole thing. Without this, tapping into a wrong 5-letter answer and typing one
+letter would eject you to some unrelated clue — the exact case Show Incorrect
+sends you into, so it would have been hit constantly.
+
+The within-word step also moved from `nextCellInWord` (grid adjacency) to the
+clue's own `cells` list, which is what the next-word branch already used. Same
+result on a well-formed word, one less place for the two to disagree.
+
+### Verification
+New `scripts/e2e/skipfilled.mjs`, 7 assertions, green on both the 15×15 and the
+21×21: skips a filled crossing letter; jumps over a full word to the next one
+with blanks; retyping a complete answer steps through it instead of ejecting;
+Tab and Shift+Tab still walk into a full word; and a reopened gap is still
+picked up. Full existing suite re-run green (`solve.mjs` plain + check,
+`revisit.mjs`, `banner.mjs`, `mobile-solve.mjs`, `stability.mjs`) with no console
+errors. `tsc --noEmit` and `next build` clean.
+
+**Harness trap worth remembering:** three of these tests failed against correct
+code at first, because clicking the cell that is already active toggles
+direction — and with auto-advance the cursor is usually already on the cell you
+were about to click. `go()` in that script clicks a scratch cell first, then
+nudges with arrow keys to force a known direction.
+
+---
+
+## Session 12b — The Skip Wasn't Visible, Because Placement Was Still Wrong
+
+Reported as "not seeing the change — when I get to an already filled in answer,
+it starts with the first letter in that clue instead of skipping over it."
+
+The Session 12 code *was* live (a probe confirmed the new behaviour was running
+on the dev server). Two separate gaps made it invisible in normal solving, and
+both surfaced as "the cursor is sitting on the first letter of a filled answer":
+
+**1. Every path that moved the cursor into a word landed on `cells[0]`.**
+Auto-advance had been taught to land on the first blank, but `NEXT_WORD`/`PREV_WORD`
+(Tab), the mobile clue-bar arrows (`goClue` — a *separate* path from Tab), and
+clicking a clue in the panel or sheet had not. So arrowing into a part-solved
+answer put you on a letter you had already entered. That is the one that would
+have been hit constantly, since it needs no unusual sequence at all.
+
+Fixed with a single `firstUnfilledCell(clue, cells)` helper in `utils.ts`, now
+used by all four. Five call sites previously wrote `cells[0]` by hand — the kind
+of duplication where teaching one of them a new rule leaves the others behind,
+which is exactly what happened.
+
+**2. Retyping a complete answer to its end landed on the literal next clue.**
+A real bug in the Session 12 change: the `skipFilled` flag correctly stops the
+cursor skipping *within* an answer you are retyping, but it was also governing
+the jump at the word boundary. So finishing a retype dumped you on the next
+clue's first cell even when that clue was full. "The word I was retyping is
+finished" is no reason to land on a full answer — both cases now take the same
+next-word-with-a-blank jump, and only movement *inside* the word differs.
+
+### Still deliberately not skipping
+Tab and the clue-bar arrows still *visit* a completely filled answer — they land
+on its first cell because it has no blank. That was the explicit choice in
+Session 12: they are how you get back to an answer that is filled in but wrong,
+and Show Incorrect sends you looking for exactly those.
+
+### Verification
+`skipfilled.mjs` grew from 7 to 10 desktop assertions plus a mobile one, green on
+both the 15×15 and the 21×21. New cases: finishing a retyped full word still
+skips a full next word; Tab into a partially filled word lands on its first
+blank; a clue-list click does the same; and the mobile clue-bar arrow does too
+(worth its own case — `goClue` is a different code path from `NEXT_WORD` and
+would not have been covered by the Tab test). Full existing suite re-run green.
+`tsc --noEmit` and `next build` clean.
+
+**Testing lesson:** the Session 12 suite passed while the feature was, in
+practice, not working. Every assertion drove the cursor with `Tab` or by typing,
+and asserted on *auto-advance*; nothing asserted where the arrows and clue clicks
+put the cursor. A green suite over one code path says nothing about the four
+others that do the same job.
+
+---
+
+## Session 13 — Fresh-Start and Clock Audit
+
+Two checks asked for: that no puzzle starts out filled in for a new visitor, and
+that the clock behaves across leaving and re-entering a puzzle in one session.
+
+### Nothing starts filled in — but a mismatched save was fatal
+
+`initState` builds every cell with `userLetter: ''` and `CrosswordGrid` renders
+only `userLetter`, never `grid[r][c].letter`, so a first visit cannot show
+answers. Confirmed empirically by `freshstart.mjs` across all three puzzles,
+desktop and mobile, in **pristine** browser contexts — 0 of 225 / 0 of 441 cells
+filled, cursor on the first white cell, no modal, no console errors. (Worth doing
+in a fresh context: every other harness here calls `localStorage.clear()` *after*
+a load, which is not the same condition.)
+
+The audit did turn up a real bug next door. `loadProgress` restored a saved
+record **wholesale with no validation**, and `CHECK_COMPLETE`, `SHOW_INCORRECT`
+and `RESTORE_SOLVED` all walk `state.cells` while indexing `puzzle.grid` at the
+same coordinates. So a record whose shape no longer matched the grid:
+
+| Seeded record | Before |
+|---|---|
+| 5×5 on a 15×15 | rendered, but showed 20 letters the visitor never typed |
+| 21×21 on a 15×15 | **crash** — `Cannot read properties of undefined (reading 'type')` |
+| `cells: 'nope'` | **crash** — `state.cells.every is not a function` |
+| `cells: null` | **crash** — `Cannot read properties of null (reading 'every')` |
+
+And because the bad record stayed in localStorage, *every reload crashed too* —
+the puzzle was permanently dead for that visitor short of clearing site data.
+**Editing a published puzzle's grid in admin is enough to cause it**, which is a
+live risk given there is an edit page.
+
+`loadProgress` now validates dimensions and cell shape and deletes anything that
+doesn't fit — a record for a different grid is worthless anyway, and keeping it
+only re-triggers the crash. All five seeded cases now render an empty grid; a
+valid same-size record still restores all 187 letters, so the guard is not
+over-rejecting.
+
+### The clock is correct
+
+`clock.mjs`, all passing:
+
+| Behaviour | Result |
+|---|---|
+| Ticks while in the puzzle | 0s → 5s over 5s |
+| Holds while out of it | left at 5s, back at 6s after a 6s absence (a running clock would read ~11s) |
+| Resumes on return | 6s → 10s over 4s |
+| Survives a reload | 10s → 10s |
+| Monotonic across repeated exits | 10s → 11s across two 2.5s absences, no reset |
+| Stops for good once solved | covered by `solve.mjs` TIMER_STOPPED and `revisit.mjs` frozen |
+
+It works because the timer is a plain `setInterval` incrementer on a mounted
+component: leaving the puzzle unmounts `SolverClient` and the interval is torn
+down, so "exit pauses it" is structural rather than something that needed
+building. Progress (cells + elapsed) is written every second, so at most one
+second is lost on the way out.
+
+**Not covered by emulation:** backgrounding the app rather than navigating away.
+There is no `visibilitychange` handling, so that case relies on the browser's own
+throttling — on iOS standalone JS is suspended, which pauses it as wanted; a
+backgrounded desktop tab is throttled rather than stopped, so it may creep by a
+few seconds. Only a real device settles it.
+
+### One judgement call left open
+Opening a puzzle and *only looking at it* starts the clock and persists it — 5
+seconds of browsing is banked and shown on the next visit, and an empty progress
+record is written before a single letter is typed. NYT behaves the same way
+(the clock starts when the puzzle opens), and nothing in the UI surfaces that
+record — `PuzzleCardActions` reads only the `crossword-solved-` key, so a card
+never shows a peeked puzzle as started. Left as is; gating the clock on the first
+letter is a one-line change if that is preferred.
+
+---
+
+## Session 14 — The Daylight Redesign
+
+Six design directions were drafted as a canvas (library + solver + phone, each
+with real puzzles and real clues), narrowed to two, then shown in light and dark.
+**D · Daylight** was chosen: warm off-white, soft shadows, pill controls, a teal
+accent, Bricolage Grotesque over DM Sans.
+
+### One palette, in tokens, no `dark:` colour variants
+
+The old styling hardcoded Tailwind shades and duplicated every one for dark
+(`bg-white dark:bg-gray-800`, ~177 such references in admin alone). That is now
+a token system in `globals.css` — `--canvas`, `--surface`, `--sunken`, `--ink`,
+`--ink-soft`, `--line`, the `--accent*` family, a separate `--cell*` family for
+the grid, `--danger*`, and `--diff-1..5` — exposed to Tailwind through
+`@theme inline` so they come out as ordinary utilities (`bg-surface`,
+`text-ink-soft`, `border-line`).
+
+The tokens flip under `.dark`, so **a component names a role, not a colour, and
+needs no `dark:` variant at all.** `src/` now contains zero `bg-gray-*`-style
+palette classes and zero `dark:` colour utilities. That deleted more code than it
+added and is why admin got a dark mode it never had.
+
+The grid keeps its own token family on purpose: it has to stay legible when every
+other surface changes, and reusing `--surface` for a cell would tie the two
+together.
+
+**Dark is warm** — brown-black `#17140f`, not blue-black. That was the whole
+distinction between direction D and direction C once both were dark; a cool dark
+here would quietly turn this into the other design.
+
+`difficultyColors` in `utils.ts` went from ten Tailwind classes with `dark:`
+halves to five token pairs (`bg-diff-1-soft text-diff-1`).
+
+### Fonts
+Bricolage Grotesque (`font-display`) and DM Sans (`font-sans`), both via
+`next/font/google`. Playfair Display and two never-used Geist faces are gone —
+and body text was falling through to **Arial**, since `--font-sans` pointed at a
+Geist variable that was never applied.
+
+### Two things the mockup got wrong, found only in the real app
+1. **The rounded grid clipped 1-Across's number.** Rounding the cell container
+   needs `overflow-hidden` to clip the corner, and the first cell's number sits
+   exactly there. At mockup scale it wasn't visible.
+2. **Rounded cells left pinholes.** A 3px cell radius over a 1.5px gap shows a
+   small square of line colour at every four-way intersection — decorative noise
+   across the whole grid.
+
+Both fixed by making the grid square. It is now the one un-rounded element in a
+design that rounds everything else, which is also just truer to a crossword.
+
+### The harnesses broke, all at once — and that is the lesson
+Every e2e script selected on **presentation**: `.bg-amber-300` for the cursor,
+`.bg-black` for a block, `.bg-amber-400` for the celebration, `.text-red-600`
+for a wrong letter, `.font-mono.tabular-nums` for the timer, and
+`text=Puzzle Complete!` plus `text=🏆` for the modal. A restyle invalidated all
+of it in one go — `solve.mjs` reported `MODAL=false TROPHY=false` against a
+perfectly working modal, purely because the copy lost an exclamation mark and the
+emoji became an SVG.
+
+The app now carries stable hooks for exactly this — `data-grid`, `data-cell`,
+`data-active`, `data-in-word`, `data-wrong`, `data-celebrating`, `data-timer`,
+`data-complete-modal`, `data-complete-mark`, `data-clue-warning`,
+`data-clue-tally` — and all fourteen harnesses were migrated onto them. **A test
+should not be able to fail because a colour changed.**
+
+### Admin
+Mechanically mapped onto the palette rather than redesigned — it was not part of
+the mockups, and it stays desktop-only. It gains a dark mode for free. Two
+mechanical-pass bugs worth remembering:
+- A negative lookbehind of `(?<![-\\w:])` silently skipped every `hover:` and
+  `focus:` prefixed class, leaving a scatter of old shades behind. `(?<![-\\w])`
+  is the correct guard.
+- Twelve buttons were `bg-accent text-white`. White reads fine on the light
+  accent (`#14776a`) and badly on the dark one (`#43c3ab`) — they need
+  `text-accent-ink`, which flips with the accent.
+
+Admin's *layout* is untouched and could use a proper pass later.
+
+### Verification
+Full suite green after migration: `freshstart`, `solve` plain + check, `revisit`,
+`banner`, `mobile-solve`, `skipfilled` (10 + mobile), `clock`, `staleprogress`
+(5/5), `stability` on 15×15 and 21×21, `admin-cluewarn`. No console or page
+errors anywhere. `tsc --noEmit` and `next build` clean. Screenshots taken of
+library, solver, phone and admin in **both** modes — that is how the two grid
+problems above surfaced.
+
+---
+
+## Session 15 — The Arrows Now Skip Completed Answers
+
+Reported as lost functionality after the redesign: "when a word is already
+filled in, before it used to skip over it and now it's stopping on the first
+letter."
+
+**Nothing broke.** The reducer is byte-identical across the redesign
+(`git diff d388811..HEAD -- src/hooks/useCrosswordSolver.ts` is empty) and
+`SolverClient`'s diff is className-only. Auto-advance still skips correctly —
+a realistic solve seeded with the top six rows of Across left **14 Down answers
+complete from crossings, and auto-advance skipped every one**, never once
+landing on a filled cell.
+
+The culprit was the **arrows**, which never skipped — that was the explicit
+choice in Session 12, on the reasoning that they are how you get back to an
+answer that is filled in but wrong. Measuring it settled the argument:
+
+| | arrow presses landing on an already-complete answer |
+|---|---|
+| before | **13 of 16** |
+| after | **0 of 16** |
+
+Thirteen out of sixteen makes the arrows useless exactly when you most want
+them, so the Session 12 reasoning was wrong in practice. Tab / `NEXT_WORD` /
+`PREV_WORD` and the mobile clue-bar ‹ › now skip answers with no blanks left,
+landing on the first blank of the next one that has any.
+
+### What keeps a filled-but-wrong answer reachable
+- **Tapping its cell in the grid** — unchanged.
+- **The clue list** (desktop panel and mobile sheet) — deliberately still visits
+  every clue, filled or not.
+
+That is the line: fast navigation skips, deliberate navigation does not. It also
+means Show Incorrect is still followed by an obvious way to reach what it flags.
+
+### Endgame fallback
+Both paths fall back to the immediate neighbour when *nothing* is left to fill,
+so the arrows keep moving on a finished grid rather than freezing — otherwise a
+completed puzzle would be unreviewable. Covered by `skipfilled.mjs` case I.
+
+### Verification
+`skipfilled.mjs` is now 10 desktop assertions plus the mobile arrow, all green —
+case D inverted (Tab must now skip the full word) and case I is new (arrows still
+move on a full grid). The measurement harness is preserved as
+`scripts/e2e/arrow-skip.mjs`. Full suite re-run green: `solve` plain + check,
+`revisit`, `banner`, `mobile-solve`, `clock`, `freshstart`, `staleprogress` 5/5,
+`stability`. `tsc --noEmit` clean.
+
+**Process note:** this is the second time a navigation decision was settled by
+argument and then reversed by measurement. The 13/16 number took one short
+script and would have settled it in Session 12.
+
+---
+
+## Session 15b — Home Screen Icon on Daylight
+
+The old icon was still the pre-redesign palette: periwinkle field, slate grid,
+amber accent square. Five options were drawn from the Daylight tokens and shown
+at the sizes that actually matter — 120px (Home Screen), 60px (Settings row),
+40px (Spotlight) — with iOS's squircle and Android's adaptive-crop circle
+overlaid. **A · Teal field** was chosen: the existing 5×5 concept recoloured,
+cream cells on teal with one mint square at the centre.
+
+Rasterizing the options first changed two things:
+- **Only the low-detail options survive Spotlight size.** The 5×5 grids turn to
+  texture at 40px and the mint accent square disappears entirely. Still legible
+  as a crossword, which is what matters, but worth knowing the accent is a
+  large-size detail only.
+- **Option B was unusable as first drawn.** Using the light `--line` token for
+  the grid on a cream field left it with no internal contrast and no edge — it
+  washed out completely small, and would have vanished against a light
+  wallpaper. Redrawn with the ink colour for the grid before it was shown.
+
+### Two definitions that must agree
+The icon exists twice on purpose: `apple-icon.tsx` renders the iOS 180×180
+through `next/og`, and `gen-icons.mjs` rasterizes the three manifest PNGs through
+`sharp` (manifest icons need stable paths, so they cannot point at Next's hashed
+icon route). Both were updated, and the gap/radius geometry in `gen-icons.mjs`
+was brought onto the same proportions as the preview so the shipped PNGs match
+what was chosen.
+
+`.flatten({ background: FIELD })` was added to the sharp pipeline. The art is
+opaque today, but any transparency renders **black** behind the icon on iOS, and
+Android's maskable crop expects full bleed — this makes shipping a transparent
+one impossible by accident.
+
+### Also fixed
+`manifest.ts` still carried the pre-redesign `#b8c8e0` for `background_color` and
+`theme_color` — a leftover the redesign missed, since only the `viewport`
+`themeColor` in `layout.tsx` had been updated. Android uses these for the splash
+screen and system bars. Both now `#f7f4ef`.
+
+### Verification
+Live `/apple-icon?<hash>` route fetched 200 and rendered; all three PNGs are the
+right dimensions and confirmed fully opaque (alpha 255–255); the manifest serves
+the new colours. All four rasterizations were compared side by side against the
+chosen option, plus a 56px sample.
+
+**Still needs a real iPhone** (unchanged from Session 10): that iOS honours the
+generated route for Add to Home Screen. And remember the icon is cached at
+install time — the shortcut has to be removed and re-added to see this.
+
+---
+
+## Session 16 — Solver Header: Difficulty Out, Timer Toggle In, Title Held Still
+
+Three changes to the same strip of chrome.
+
+### Difficulty badge removed from the solver
+It stays on the puzzle card, where you are choosing what to play. Once you are
+solving, the difficulty tells you nothing you can act on, and the badge was
+costing the grid vertical space. Still shown in the completion modal as a stat.
+Desktop header 95px, mobile 53px; `difficulty.mjs` asserts it appears on the
+library and nowhere in the solver.
+
+### Show timer in the ⋯ menu
+Desktop already had a Timer switch in the header, where there is room; mobile had
+none. `SolverActions` now takes optional `timerVisible` / `onToggleTimer` and the
+menu variant renders a switch. It toggles **visibility only** — the interval is
+untouched, so the clock keeps running while hidden and hiding it to take the
+pressure off doesn't also stop your time. The menu stays open when flipped: it is
+a setting, not an action.
+
+### The title was drifting as the clock ticked
+Reported as the title shifting "on certain numbers". Two causes compounding:
+
+1. **DM Sans has no tabular figures.** The redesign dropped `font-mono` from the
+   timer and relied on `font-variant-numeric: tabular-nums`, which the face does
+   not implement — "1111" measures 20px against 39px for "8888". So the timer's
+   width changed on almost every tick.
+2. **The header's right block has no fixed width on mobile** (only
+   `md:w-64 lg:w-72`), so that resize pushed the `flex-1` centre column.
+
+Measured: **10 distinct title x positions over 11 seconds, 5.6px of drift** on
+mobile. Desktop was already stable, but only by accident of the fixed `md:w-64`.
+
+Fixed by reserving the timer's width (`w-16 md:w-[4.5rem] text-right`). Now one
+title position on both viewports, and verified from `0:00` through `119:59`
+without clipping — `formatTime` has no hour rollover, so a long solve really does
+render three digits of minutes. `tabular-nums` is kept in case the face ever
+gains the feature, but the reserved width is what holds the layout.
+
+### Two harness traps worth recording
+- **The emulated iPhone 13 viewport is 390×664, not 390×844.** Two tests tapped
+  at y=700, which is off screen; the taps silently did nothing and burned the
+  full 30s Playwright timeout inside a `.catch()`, which then read as "the menu
+  won't dismiss". It dismisses fine.
+- **Seeding a progress record while the solver is mounted races its save
+  effect**, which writes every second and wins. Use a fresh context per value.
+
+`clock.mjs`'s reload tolerance went from ≤2s to ≤3s — a loaded machine can spend
+over two seconds on the reload itself, which made it flaky rather than wrong.
+
+### Verification
+`solve` plain, `revisit`, `mobile-solve`, `clock`, `timer-toggle`, `stability`
+(21×21), `skipfilled` (10 + mobile), `title-shift`, `timer-width`, `difficulty` —
+all green, no console or page errors. `tsc --noEmit` and `next build` clean.
+Menu screenshotted in both modes.

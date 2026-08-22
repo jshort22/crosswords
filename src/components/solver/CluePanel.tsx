@@ -25,7 +25,7 @@ export default function CluePanel({ title, clues, activeClueNumber, onClueClick 
 
   return (
     <div className="flex flex-col h-full">
-      <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+      <h2 className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-accent px-3 py-2.5 border-b border-line">
         {title}
       </h2>
       <ol ref={listRef} className="flex-1 overflow-y-auto text-sm">
@@ -38,14 +38,14 @@ export default function CluePanel({ title, clues, activeClueNumber, onClueClick 
                 onClick={() => onClueClick(clue)}
                 className={`w-full text-left px-3 py-1.5 max-md:py-3 flex gap-2 transition-colors ${
                   isActive
-                    ? 'bg-amber-100 dark:bg-amber-800/40 font-semibold text-gray-900 dark:text-amber-200'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    ? 'bg-accent-soft font-semibold text-accent-soft-ink'
+                    : 'hover:bg-sunken text-ink'
                 }`}
               >
-                <span className="shrink-0 font-semibold text-gray-500 dark:text-gray-400 w-6 text-right">
+                <span className="shrink-0 font-semibold text-ink-soft w-6 text-right">
                   {clue.number}
                 </span>
-                <span className="leading-snug">{clue.clue || <em className="text-gray-400">No clue</em>}</span>
+                <span className="leading-snug">{clue.clue || <em className="text-ink-soft">No clue</em>}</span>
               </button>
             </li>
           )

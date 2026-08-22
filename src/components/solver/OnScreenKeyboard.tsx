@@ -15,10 +15,15 @@ const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'] as const
 // and known, which is what lets the grid size itself reliably. Letters only —
 // no space, shift, or return, since a crossword cell takes one letter.
 export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false }: Props) {
+  // Key height scales with viewport height. A square grid inside a tall phone
+  // leaves slack that nothing else can use — an iPhone SE has ~40px spare, a
+  // 14 Pro Max ~260px — so it goes to the keys, where it buys easier typing.
+  // Floor is 2.75rem (44px, the iOS minimum touch target); ceiling keeps keys
+  // from looking absurd on the tallest devices.
   const keyClass =
-    'flex-1 min-w-0 h-11 rounded-md font-semibold text-base flex items-center justify-center ' +
-    'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm ' +
-    'transition-colors active:bg-gray-300 dark:active:bg-gray-600 ' +
+    'flex-1 min-w-0 h-[clamp(2.75rem,7.5svh,3.75rem)] rounded-[10px] font-semibold text-base flex items-center justify-center ' +
+    'bg-surface text-ink shadow-key ' +
+    'transition-colors active:bg-accent-soft active:text-accent-soft-ink ' +
     (disabled ? 'opacity-40' : '')
 
   // pointerdown rather than click: fires immediately (no ~300ms tap delay) and
@@ -32,7 +37,7 @@ export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false 
 
   return (
     <div
-      className="touch-target landscape-hide shrink-0 md:hidden bg-gray-200 dark:bg-gray-900 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] flex flex-col gap-1.5"
+      className="touch-target landscape-hide shrink-0 md:hidden bg-sunken px-1.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col gap-1.5"
       // Padding, not margin, so the keyboard's background extends into the
       // home-indicator strip instead of leaving a band of page colour.
       aria-label="Letter keyboard"
@@ -63,9 +68,12 @@ export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false 
               disabled={disabled}
               onPointerDown={press(onDelete)}
               aria-label="Delete"
-              className={keyClass + ' flex-[1.6] bg-gray-300 dark:bg-gray-800'}
+              className={keyClass + ' flex-[1.6] !bg-sunken text-ink-soft'}
             >
-              ⌫
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M20 6H9l-6 6 6 6h11a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1z" />
+                <path d="M16 10l-4 4M12 10l4 4" />
+              </svg>
             </button>
           )}
         </div>

@@ -13,17 +13,17 @@ export default function StepIndicator({ current }: { current: number }) {
             <div
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-amber-400 text-white'
+                  ? 'bg-accent text-accent-ink'
                   : isDone
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-gray-100 text-gray-400'
+                  ? 'bg-accent-soft text-accent'
+                  : 'bg-sunken text-ink-soft'
               }`}
             >
               <span className="text-xs">{isDone ? '✓' : i + 1}</span>
               {label}
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`w-4 h-px ${isDone ? 'bg-amber-300' : 'bg-gray-200'}`} />
+              <div className={`w-4 h-px ${isDone ? 'bg-accent' : 'bg-line'}`} />
             )}
           </div>
         )

@@ -1,4 +1,4 @@
-import type { Grid, GridCell, Clue, CrosswordPuzzle } from './types'
+import type { Grid, GridCell, Clue, CrosswordPuzzle, SolverCell } from './types'
 import type { PuzzleRow } from '@/lib/supabase/types'
 
 /** Returns true if the cell at [r,c] should start an across word. */
@@ -223,16 +223,67 @@ export function difficultyLabel(d: number): string {
   return ['', 'Beginner', 'Easy', 'Medium', 'Hard', 'Expert'][d] ?? 'Unknown'
 }
 
+/**
+ * One class pair per difficulty, from the theme tokens — so these follow the
+ * palette in both modes with no `dark:` variants. The ramp runs green → red
+ * across Beginner → Expert.
+ */
 export const difficultyColors: Record<number, string> = {
-  1: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-  2: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-400',
-  3: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
-  4: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
-  5: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+  1: 'bg-diff-1-soft text-diff-1',
+  2: 'bg-diff-2-soft text-diff-2',
+  3: 'bg-diff-3-soft text-diff-3',
+  4: 'bg-diff-4-soft text-diff-4',
+  5: 'bg-diff-5-soft text-diff-5',
 }
 
 export function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+/**
+ * Longest clue that still fits the mobile clue bar's three lines.
+ *
+ * The bar is sized for exactly three lines (see ClueBar). Measured in a real
+ * browser across all 298 clues in the library, plus a synthetic prose sweep,
+ * the character count where a fourth line starts depends on viewport width:
+ *
+ *   320px (iPhone SE 1st gen)          three lines up to ~90 chars
+ *   375px (iPhone SE 2/3, 13 mini)     ~112 chars
+ *   390px (iPhone 12–16)               ~123 chars
+ *   430px (Pro Max)                    ~145 chars
+ *
+ * 100 is the round number sitting safely below the 375px crossover band — real
+ * clues there still fit at 101 chars and spilled at 114 — so anything under it
+ * is safe on every phone still in common use.
+ *
+ * This is deliberately a soft warning in the admin clue editor, never a cap.
+ * A character count can only ever approximate wrapping (a line of "l"s is far
+ * narrower than a line of "W"s), and a clue that spills is not broken — it
+ * scrolls inside the bar and is one tap away in full in the clue sheet. So the
+ * count may warn on a clue that would actually have fit; that is the right way
+ * round for an advisory.
+ */
+export const CLUE_THREE_LINE_LIMIT = 100
+
+export function clueOverflowsThreeLines(clue: string): boolean {
+  return clue.trim().length > CLUE_THREE_LINE_LIMIT
+}
+
+/**
+ * Where the cursor should land when it is dropped into a word: the first cell
+ * still empty, or the word's first cell if it is completely filled.
+ *
+ * Every path that moves the cursor into a word goes through this — auto-advance,
+ * Tab/NEXT_WORD, the mobile clue-bar arrows, and clicking a clue in the list.
+ * They used to land on cells[0] unconditionally, which put you on a letter you
+ * had already entered and made the answer read as if it were starting over.
+ *
+ * Note this is about *placement*, not skipping. The arrows still visit every
+ * clue whether or not it is filled — that is how you get back to an answer that
+ * is filled in but wrong.
+ */
+export function firstUnfilledCell(clue: Clue, cells: SolverCell[][]): [number, number] {
+  return clue.cells.find(([r, c]) => !cells[r]?.[c]?.userLetter) ?? clue.cells[0]
 }

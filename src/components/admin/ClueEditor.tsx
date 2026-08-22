@@ -1,7 +1,12 @@
 'use client'
 
 import type { Grid } from '@/lib/crossword/types'
-import { startsAcross, startsDown } from '@/lib/crossword/utils'
+import {
+  CLUE_THREE_LINE_LIMIT,
+  clueOverflowsThreeLines,
+  startsAcross,
+  startsDown,
+} from '@/lib/crossword/utils'
 
 interface ClueEntry {
   number: number
@@ -57,32 +62,70 @@ function ClueSection({
   clues: Record<number, string>
   onChange: (c: Record<number, string>) => void
 }) {
+  const longCount = entries.filter(e => clueOverflowsThreeLines(clues[e.number] ?? '')).length
+
   return (
     <div>
-      <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3">{title}</h3>
+      <div className="flex items-baseline gap-3 mb-3">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-ink-soft">{title}</h3>
+        {/* With 140 clues in a 21x21, a warning on one row is easy to scroll
+            straight past — so count them up here too. */}
+        {longCount > 0 && (
+          <span data-clue-tally="" className="text-xs text-diff-4">
+            {longCount} {longCount === 1 ? 'clue' : 'clues'} over{' '}
+            {CLUE_THREE_LINE_LIMIT} characters
+          </span>
+        )}
+      </div>
       {entries.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">No {title.toLowerCase()} clues — check your grid.</p>
+        <p className="text-sm text-ink-soft italic">No {title.toLowerCase()} clues — check your grid.</p>
       ) : (
         <div className="space-y-2">
           {entries.map(entry => (
             <div key={entry.number} className="flex gap-3 items-start">
               <div className="w-8 text-right shrink-0 pt-2">
-                <span className="text-sm font-semibold text-gray-500">{entry.number}</span>
+                <span className="text-sm font-semibold text-ink-soft">{entry.number}</span>
               </div>
               <div className="shrink-0 pt-2">
-                <span className="text-xs font-mono text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                <span className="text-xs font-mono text-accent bg-accent-soft px-1.5 py-0.5 rounded">
                   {entry.answer} ({entry.answer.replace(/_/g, '').length})
                 </span>
               </div>
-              <input
-                type="text"
-                placeholder="Enter clue…"
-                value={clues[entry.number] ?? ''}
-                onChange={e =>
-                  onChange({ ...clues, [entry.number]: e.target.value })
-                }
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-              />
+              <div className="flex-1 min-w-0">
+                <input
+                  type="text"
+                  placeholder="Enter clue…"
+                  value={clues[entry.number] ?? ''}
+                  onChange={e =>
+                    onChange({ ...clues, [entry.number]: e.target.value })
+                  }
+                  aria-describedby={
+                    clueOverflowsThreeLines(clues[entry.number] ?? '')
+                      ? `clue-len-${title}-${entry.number}`
+                      : undefined
+                  }
+                  className={
+                    'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ' +
+                    (clueOverflowsThreeLines(clues[entry.number] ?? '')
+                      ? 'border-accent focus:ring-accent'
+                      : 'border-line focus:ring-accent')
+                  }
+                />
+                {/* Advisory only — long clues are allowed. See
+                    CLUE_THREE_LINE_LIMIT for where the number comes from. */}
+                {clueOverflowsThreeLines(clues[entry.number] ?? '') && (
+                  <p
+                    id={`clue-len-${title}-${entry.number}`}
+                    data-clue-warning=""
+                    className="mt-1 text-xs text-diff-4"
+                  >
+                    {(clues[entry.number] ?? '').trim().length} characters — over{' '}
+                    {CLUE_THREE_LINE_LIMIT}, so on a narrow phone this clue will
+                    scroll inside the clue bar instead of showing all at once.
+                    Still fine to use.
+                  </p>
+                )}
+              </div>
             </div>
           ))}
         </div>

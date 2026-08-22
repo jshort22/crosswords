@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import Link from 'next/link'
 import type { CrosswordPuzzle, Clue, SolverState, Direction } from '@/lib/crossword/types'
 import { useCrosswordSolver } from '@/hooks/useCrosswordSolver'
-import { getActiveClue, difficultyLabel, difficultyColors, formatTime, prevCellInWord } from '@/lib/crossword/utils'
+import { getActiveClue, firstUnfilledCell, formatTime, prevCellInWord } from '@/lib/crossword/utils'
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
@@ -29,17 +29,53 @@ function saveProgress(puzzleId: string, cells: SolverState['cells'], elapsed: nu
   } catch {}
 }
 
-function loadProgress(puzzleId: string): { cells: SolverState['cells']; elapsed: number } | null {
+/**
+ * A saved record is restored wholesale into `state.cells`, and several reducer
+ * cases (CHECK_COMPLETE, SHOW_INCORRECT, RESTORE_SOLVED) walk `state.cells`
+ * while indexing `puzzle.grid` at the same coordinates. So a record whose shape
+ * no longer matches the grid does not merely show stale letters — it throws on
+ * render, and because the bad record stays in localStorage, EVERY reload throws
+ * too. The page is dead for that visitor until they clear site data.
+ *
+ * Editing a published puzzle's grid in admin is enough to produce one, so this
+ * validates before restoring and drops anything that doesn't fit. A record for a
+ * different grid is worthless anyway; keeping it only re-triggers the crash.
+ */
+function loadProgress(
+  puzzleId: string,
+  rows: number,
+  cols: number
+): { cells: SolverState['cells']; elapsed: number } | null {
   try {
     const raw = localStorage.getItem(storageKey(puzzleId))
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const cells = parsed?.cells
+    const fits =
+      Array.isArray(cells) &&
+      cells.length === rows &&
+      cells.every(
+        (row: unknown) =>
+          Array.isArray(row) &&
+          row.length === cols &&
+          row.every(cell => cell && typeof cell.userLetter === 'string')
+      )
+    if (!fits) {
+      localStorage.removeItem(storageKey(puzzleId))
+      return null
+    }
+    const elapsed =
+      typeof parsed.elapsed === 'number' && Number.isFinite(parsed.elapsed) && parsed.elapsed >= 0
+        ? parsed.elapsed
+        : 0
+    return { cells, elapsed }
   } catch {
     return null
   }
 }
 
 export default function SolverClient({ puzzle }: Props) {
-  const { state, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
+  const { state, wordCells, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
     useCrosswordSolver(puzzle)
 
   const [showModal, setShowModal] = useState(false)
@@ -72,7 +108,7 @@ export default function SolverClient({ puzzle }: Props) {
       }
     } catch {}
 
-    const saved = loadProgress(puzzle.id)
+    const saved = loadProgress(puzzle.id, puzzle.rows, puzzle.cols)
     if (saved) {
       restore(saved.cells, Date.now() - saved.elapsed * 1000)
       setElapsed(saved.elapsed)
@@ -130,10 +166,15 @@ export default function SolverClient({ puzzle }: Props) {
       // isComplete is set, so an edit here would leave a wrong letter sitting in
       // a still-gold "solved" grid.
       if (state.isComplete) return
+      // Whether auto-advance should skip filled cells depends on the word as it
+      // was BEFORE this keystroke, which only this side can still see: once the
+      // letter is written, "just completed" and "being retyped" look identical
+      // to the reducer.
+      const wordWasComplete = wordCells.every(([r, c]) => state.cells[r][c].userLetter !== '')
       setLetter(state.activeRow, state.activeCol, letter)
-      advance()
+      advance(!wordWasComplete)
     },
-    [state.isComplete, state.activeRow, state.activeCol, setLetter, advance]
+    [state.isComplete, state.activeRow, state.activeCol, state.cells, wordCells, setLetter, advance]
   )
 
   const inputBackspace = useCallback(() => {
@@ -219,23 +260,23 @@ export default function SolverClient({ puzzle }: Props) {
   const handleAcrossClueClick = useCallback(
     (clue: Clue) => {
       if (clue.cells.length > 0) {
-        const [r, c] = clue.cells[0]
+        const [r, c] = firstUnfilledCell(clue, state.cells)
         setActive(r, c)
         setDirection('across')
       }
     },
-    [setActive, setDirection]
+    [state.cells, setActive, setDirection]
   )
 
   const handleDownClueClick = useCallback(
     (clue: Clue) => {
       if (clue.cells.length > 0) {
-        const [r, c] = clue.cells[0]
+        const [r, c] = firstUnfilledCell(clue, state.cells)
         setActive(r, c)
         setDirection('down')
       }
     },
-    [setActive, setDirection]
+    [state.cells, setActive, setDirection]
   )
 
   const activeAcrossClue = getActiveClue(puzzle.cluesAcross, state.activeRow, state.activeCol)
@@ -255,14 +296,26 @@ export default function SolverClient({ puzzle }: Props) {
       ]
       const i = seq.findIndex(e => e.dir === state.direction && e.clue.number === activeClue?.number)
       if (i === -1) return
-      const next = seq[(i + delta + seq.length) % seq.length]
+      // Skip answers that are already complete, matching Tab/NEXT_WORD. Falls
+      // back to the immediate neighbour when nothing is left to fill, so the
+      // arrows still move on a finished grid.
+      const at = (k: number) => seq[((k % seq.length) + seq.length) % seq.length]
+      let next = at(i + delta)
+      for (let k = 1; k <= seq.length; k++) {
+        const candidate = at(i + delta * k)
+        if (candidate.clue.cells.some(([r, c]) => !state.cells[r]?.[c]?.userLetter)) {
+          next = candidate
+          break
+        }
+      }
       // setActive BEFORE setDirection: SET_ACTIVE toggles direction when the
       // target cell equals the current one, which is reachable at the
       // Across/Down boundary. Setting direction after makes it deterministic.
-      setActive(next.clue.cells[0][0], next.clue.cells[0][1])
+      const [r, c] = firstUnfilledCell(next.clue, state.cells)
+      setActive(r, c)
       setDirection(next.dir)
     },
-    [puzzle.cluesAcross, puzzle.cluesDown, state.direction, activeClue, setActive, setDirection]
+    [puzzle.cluesAcross, puzzle.cluesDown, state.direction, state.cells, activeClue, setActive, setDirection]
   )
 
   const handleSheetAcrossClick = useCallback(
@@ -285,42 +338,53 @@ export default function SolverClient({ puzzle }: Props) {
   return (
     <div className="h-svh flex flex-col overflow-hidden overscroll-none pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {/* Header — sections match the main layout widths so the title centres over the grid */}
-      <header className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center pt-[env(safe-area-inset-top)]">
+      <header className="shrink-0 bg-surface border-b border-line flex items-center pt-[env(safe-area-inset-top)]">
         {/* Left: back button. w-40 on desktop matches the aside so the title
             centres over the grid; auto width on mobile. */}
         <div className="md:w-40 shrink-0 px-3 py-2 md:px-4 md:py-3 flex items-center">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-sunken text-xs md:text-[13px] font-medium text-ink-soft hover:text-ink transition-colors whitespace-nowrap"
           >
             <span aria-hidden>←</span>
             <span className="hidden md:inline">All Puzzles</span>
           </Link>
         </div>
 
-        {/* Center: title + difficulty — flex-1 matches the grid column */}
-        <div className="flex-1 min-w-0 py-2 md:py-3 flex flex-col items-center gap-0.5 md:gap-1">
-          <h1 className="text-sm md:text-base font-bold text-gray-900 dark:text-white leading-tight text-center font-serif truncate max-w-full px-1">
+        {/* Center: title — flex-1 matches the grid column. The difficulty badge
+            used to sit under the title; it's on the puzzle card where you pick a
+            puzzle, and once you're solving it tells you nothing you can act on.
+            Dropping it also gives the grid back the height it was using. */}
+        <div className="flex-1 min-w-0 py-2 md:py-3 flex flex-col items-center justify-center">
+          <h1 className="font-display text-sm md:text-lg font-semibold tracking-[-0.02em] text-ink leading-tight text-center truncate max-w-full px-1">
             {puzzle.title}
           </h1>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${difficultyColors[puzzle.difficulty] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-            {difficultyLabel(puzzle.difficulty)}
-          </span>
         </div>
 
         {/* Right: timer + theme + (mobile) actions menu. w-64/72 on desktop
             mirrors the clue aside so the title stays centred over the grid. */}
         <div className="md:w-64 lg:w-72 shrink-0 px-3 py-2 md:px-4 md:py-3 flex items-center md:flex-col md:items-end gap-2 md:gap-1.5 ml-auto">
-          <span className="text-base md:text-xl font-mono font-semibold tabular-nums text-gray-700 dark:text-gray-200">
+          {/* Fixed width, right-aligned. DM Sans does NOT ship tabular figures —
+              `tabular-nums` is declared but has no effect ("1111" measures 20px
+              against 39px for "8888"), so the timer's width changed on almost
+              every tick. On mobile the header's right block has no fixed width,
+              so that resize pushed the flex-1 centre column and the title
+              visibly drifted: 10 distinct title positions over 11 seconds.
+              Reserving the width is what actually holds the layout still; the
+              tabular-nums stays in case the face ever gains the feature. */}
+          <span
+            data-timer=""
+            className="w-16 md:w-[4.5rem] shrink-0 text-right text-base md:text-xl font-semibold tabular-nums text-ink"
+          >
             {timerVisible ? formatTime(elapsed) : '--:--'}
           </span>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <label className="hidden md:flex items-center gap-1.5 cursor-pointer">
-              <span className="text-xs text-gray-400 dark:text-gray-500">Timer</span>
+              <span className="text-xs text-ink-soft">Timer</span>
               <div
                 onClick={() => setTimerVisible(v => !v)}
-                className={`relative w-8 h-4 rounded-full transition-colors ${timerVisible ? 'bg-amber-400' : 'bg-gray-200 dark:bg-gray-600'}`}
+                className={`relative w-8 h-4 rounded-full transition-colors ${timerVisible ? 'bg-accent' : 'bg-line'}`}
               >
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${timerVisible ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
@@ -331,7 +395,7 @@ export default function SolverClient({ puzzle }: Props) {
                 onClick={() => setMenuOpen(o => !o)}
                 aria-label="Puzzle actions"
                 aria-expanded={menuOpen}
-                className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-lg text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+                className="md:hidden w-9 h-9 flex items-center justify-center rounded-full text-lg bg-sunken text-ink-soft transition-colors"
               >
                 ⋯
               </button>
@@ -346,11 +410,13 @@ export default function SolverClient({ puzzle }: Props) {
       {isMobile && menuOpen && (
         <div className="md:hidden fixed inset-0 z-30" onClick={() => setMenuOpen(false)}>
           <div
-            className="absolute right-2 top-2 w-52 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-2 shadow-xl flex flex-col gap-2 mt-[env(safe-area-inset-top)]"
+            className="absolute right-2 top-2 w-56 rounded-[20px] bg-surface p-2.5 shadow-float flex flex-col gap-2 mt-[env(safe-area-inset-top)]"
             onClick={e => e.stopPropagation()}
           >
             <SolverActions
               variant="menu"
+              timerVisible={timerVisible}
+              onToggleTimer={() => setTimerVisible(v => !v)}
               onReset={() => { handleReset(); setMenuOpen(false) }}
               onShowIncorrect={() => { showIncorrect(); setMenuOpen(false) }}
             />
@@ -361,7 +427,7 @@ export default function SolverClient({ puzzle }: Props) {
       {/* Main area */}
       <main className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left action panel */}
-        <aside className="hidden md:flex flex-col w-40 border-r border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-3 gap-2">
+        <aside className="hidden md:flex flex-col w-40 border-r border-line bg-sunken p-3 gap-2">
           <SolverActions variant="sidebar" onReset={handleReset} onShowIncorrect={showIncorrect} />
         </aside>
 
@@ -385,7 +451,7 @@ export default function SolverClient({ puzzle }: Props) {
             />
             {/* Error notification */}
             {state.hasErrors && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-400 font-medium">
+              <div className="bg-danger-soft rounded-full px-4 py-2.5 text-sm text-danger font-medium">
                 At least one letter is wrong. Keep trying!
               </div>
             )}
@@ -393,24 +459,24 @@ export default function SolverClient({ puzzle }: Props) {
 
           {/* Active clue bar — pinned below the grid, always in view */}
           <div className="hidden md:flex px-4 pb-4 justify-center">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2 max-w-full">
+            <div className="bg-surface shadow-key rounded-full px-4 py-2.5 text-sm flex items-center gap-2 max-w-full">
               {activeClue ? (
                 <>
-                  <span className="font-bold text-gray-500 dark:text-gray-400 shrink-0">
+                  <span className="font-bold text-ink-soft shrink-0">
                     {activeClue.number} {state.direction === 'across' ? 'Across' : 'Down'}
                   </span>
-                  <span className="text-gray-800 dark:text-gray-200">{activeClue.clue}</span>
+                  <span className="text-ink">{activeClue.clue}</span>
                 </>
               ) : (
-                <span className="text-gray-400 dark:text-gray-500 italic">Select a cell</span>
+                <span className="text-ink-soft italic">Select a cell</span>
               )}
             </div>
           </div>
         </div>
 
         {/* Clue panels — hidden on small screens, shown on medium+ */}
-        <aside className="hidden md:flex flex-col w-64 lg:w-72 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-          <div className="flex-1 overflow-hidden flex flex-col border-b border-gray-200">
+        <aside className="hidden md:flex flex-col w-64 lg:w-72 border-l border-line bg-surface overflow-hidden">
+          <div className="flex-1 overflow-hidden flex flex-col border-b border-line">
             <CluePanel
               title="Across"
               clues={puzzle.cluesAcross}

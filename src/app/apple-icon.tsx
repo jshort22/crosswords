@@ -5,14 +5,17 @@ import { ImageResponse } from 'next/og'
 export const size = { width: 180, height: 180 }
 export const contentType = 'image/png'
 
-const FIELD = '#b8c8e0'
-const LINE = '#374151'
-const BLACK = '#111827'
-const WHITE = '#ffffff'
-const ACCENT = '#fbbf24'
+// Daylight tokens. Keep these in step with scripts/e2e/gen-icons.mjs, which
+// rasterizes the manifest PNGs from the same pattern and geometry — the two
+// have to agree or iOS and Android ship different icons.
+const FIELD = '#14776a'   // --accent
+const LINE = '#211d18'    // the grid's gaps, just off --cell-black
+const BLACK = '#17140f'   // --canvas (dark)
+const WHITE = '#f7f4ef'   // --canvas (light), as the cell fill
+const ACCENT = '#43c3ab'  // --accent (dark), the one square that pops
 
 // 5x5 with true 180° rotational symmetry, the way a real crossword is built.
-// 'b' black, 'a' the amber accent square, '.' white.
+// 'b' black, 'a' the accent square, '.' a cell.
 const PATTERN = [
   'b..b.',
   '..b..',
@@ -38,20 +41,20 @@ export default function AppleIcon() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 2,
-            padding: 2,
+            gap: 4,
+            padding: 4,
             background: LINE,
-            borderRadius: 6,
+            borderRadius: 7,
           }}
         >
           {PATTERN.map((row, r) => (
-            <div key={r} style={{ display: 'flex', gap: 2 }}>
+            <div key={r} style={{ display: 'flex', gap: 4 }}>
               {row.split('').map((cell, c) => (
                 <div
                   key={c}
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 23,
+                    height: 23,
                     background: cell === 'b' ? BLACK : cell === 'a' ? ACCENT : WHITE,
                   }}
                 />

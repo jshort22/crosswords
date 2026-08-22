@@ -97,7 +97,7 @@ export default function GridEditor({ grid, onChange }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-ink-soft">
           Click a cell, then type letters or press <strong>space</strong> to make it black. Rows advance automatically when full.
         </p>
         <button
@@ -105,8 +105,8 @@ export default function GridEditor({ grid, onChange }: Props) {
           onClick={() => setSymmetry(s => !s)}
           className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
             symmetry
-              ? 'border-amber-300 bg-amber-50 text-amber-700'
-              : 'border-gray-200 text-gray-400 hover:bg-gray-50'
+              ? 'border-accent bg-accent-soft text-accent'
+              : 'border-line text-ink-soft hover:bg-sunken'
           }`}
         >
           180° symmetry {symmetry ? 'on' : 'off'}
@@ -117,7 +117,7 @@ export default function GridEditor({ grid, onChange }: Props) {
         ref={gridRef}
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        className="grid border border-gray-300 w-fit outline-none"
+        className="grid border border-line w-fit outline-none"
         style={{
           gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
           gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
@@ -130,8 +130,8 @@ export default function GridEditor({ grid, onChange }: Props) {
             return (
               <div
                 key={`${r},${c}`}
-                className={`relative border border-gray-300 flex items-center justify-center cursor-pointer select-none ${
-                  isBlack ? 'bg-black' : isActive ? 'bg-amber-200' : 'bg-white hover:bg-amber-50'
+                className={`relative border border-line flex items-center justify-center cursor-pointer select-none ${
+                  isBlack ? 'bg-cell-black' : isActive ? 'bg-cell-active text-cell-active-ink' : 'bg-cell hover:bg-cell-word'
                 }`}
                 style={{
                   width: cellSize,
@@ -152,7 +152,7 @@ export default function GridEditor({ grid, onChange }: Props) {
                   <>
                     {cell.number !== null && (
                       <span
-                        className="absolute top-0 left-0.5 text-gray-500 leading-none font-medium"
+                        className="absolute top-0 left-0.5 text-ink-soft leading-none font-medium"
                         style={{ fontSize: cellSize * 0.22 }}
                       >
                         {cell.number}
@@ -160,7 +160,7 @@ export default function GridEditor({ grid, onChange }: Props) {
                     )}
                     {cell.letter && (
                       <span
-                        className="font-bold text-gray-900 uppercase"
+                        className="font-bold text-ink uppercase"
                         style={{ fontSize: cellSize * 0.5 }}
                       >
                         {cell.letter}
@@ -174,7 +174,7 @@ export default function GridEditor({ grid, onChange }: Props) {
         )}
       </div>
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-ink-soft">
         Right-click or Ctrl+click also toggles black. Arrow keys navigate. Numbers are auto-assigned by standard crossword rules.
       </p>
     </div>
