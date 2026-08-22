@@ -270,7 +270,7 @@ export function prevCellForBackspace(
    and gets read by a human in the Supabase table editor as often as by code.
    The direction is part of the ref: 17A and 17D are different answers.        */
 
-export const EMPTY_THEME_SET: ThemeSet = { marquee: null, themers: [] }
+export const EMPTY_THEME_SET: ThemeSet = { marquees: [], themers: [] }
 
 export function refToString(ref: ClueRef): string {
   return `${ref.number}${ref.direction === 'across' ? 'A' : 'D'}`
@@ -289,7 +289,7 @@ export function sameRef(a: ClueRef | null, b: ClueRef | null): boolean {
 
 export function serializeThemeSet(set: ThemeSet): unknown {
   return {
-    marquee: set.marquee ? refToString(set.marquee) : null,
+    marquees: set.marquees.map(refToString),
     themers: set.themers.map(refToString),
   }
 }
@@ -300,32 +300,52 @@ export function serializeThemeSet(set: ThemeSet): unknown {
  * all. Both must read as "no theme", never throw — this runs during the solver's
  * first render.
  */
+const parseRefList = (raw: unknown): ClueRef[] =>
+  Array.isArray(raw) ? raw.map(parseClueRef).filter((r): r is ClueRef => r !== null) : []
+
+const dedupeRefs = (refs: ClueRef[]): ClueRef[] =>
+  refs.filter((r, i) => refs.findIndex(o => sameRef(o, r)) === i)
+
 export function deserializeThemeSet(raw: unknown): ThemeSet {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return EMPTY_THEME_SET
   const obj = raw as Record<string, unknown>
-  const marquee = parseClueRef(obj.marquee)
-  const themers = Array.isArray(obj.themers)
-    ? obj.themers.map(parseClueRef).filter((r): r is ClueRef => r !== null)
-    : []
-  // A themer that duplicates the marquee would light itself; drop it.
-  const deduped = themers.filter(t => !sameRef(t, marquee))
-  // Without a marquee there is no hub, so there is no theme set at all.
-  if (!marquee) return EMPTY_THEME_SET
-  return { marquee, themers: deduped }
+
+  // `marquees` is the current shape. `marquee` (a single string) is the shape
+  // this shipped with before multiple marquees were allowed, and rows written
+  // then are still in the database — read both, so nobody's authored theme is
+  // lost. The next save rewrites the row in the new shape.
+  const marquees = dedupeRefs(
+    obj.marquees !== undefined
+      ? parseRefList(obj.marquees)
+      : [parseClueRef(obj.marquee)].filter((r): r is ClueRef => r !== null)
+  )
+
+  // A ref cannot be both: marquee wins, so it is never its own themer.
+  const themers = dedupeRefs(parseRefList(obj.themers)).filter(
+    t => !marquees.some(m => sameRef(m, t))
+  )
+
+  // No marquee means no hub, so there is no theme set at all.
+  if (marquees.length === 0) return EMPTY_THEME_SET
+  return { marquees, themers }
 }
 
 /**
  * Which answers should light up as "linked" given the answer you are on.
  *
- * Deliberately asymmetric: the marquee lights every themer, but a themer lights
- * only the marquee — not its siblings. The marquee is the hub, and lighting the
- * whole set from any member would give away how many theme answers there are
- * the first time you touched one of them.
+ * Still deliberately asymmetric:
+ *   - on a MARQUEE: every themer **and the other marquees**. A puzzle with two
+ *     revealers wants them to point at each other as well as at the payoffs.
+ *   - on a THEMER: the marquees only, never its sibling themers. Lighting the
+ *     whole set from any member would give away how many theme answers there
+ *     are the first time you touched one of them.
  */
 export function linkedRefsFor(themeSet: ThemeSet, current: ClueRef | null): ClueRef[] {
-  if (!current || !themeSet.marquee) return []
-  if (sameRef(current, themeSet.marquee)) return themeSet.themers
-  if (themeSet.themers.some(t => sameRef(t, current))) return [themeSet.marquee]
+  if (!current || themeSet.marquees.length === 0) return []
+  if (themeSet.marquees.some(m => sameRef(m, current))) {
+    return [...themeSet.marquees.filter(m => !sameRef(m, current)), ...themeSet.themers]
+  }
+  if (themeSet.themers.some(t => sameRef(t, current))) return themeSet.marquees
   return []
 }
 
@@ -347,7 +367,7 @@ export function linkedCellSet(
 /** True if this answer belongs to the theme set at all (either role). */
 export function isThemeMember(themeSet: ThemeSet, ref: ClueRef | null): boolean {
   if (!ref) return false
-  return sameRef(ref, themeSet.marquee) || themeSet.themers.some(t => sameRef(t, ref))
+  return themeSet.marquees.some(m => sameRef(m, ref)) || themeSet.themers.some(t => sameRef(t, ref))
 }
 
 export function difficultyLabel(d: number): string {

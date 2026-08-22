@@ -1326,3 +1326,53 @@ from the themer list, only one marquee can ever be checked, Save persists to the
 DB, reopening the editor restores the controls, and the solver highlights it.
 14/14. Both harnesses restore the puzzle's original `theme_set` when they finish,
 so they are safe to re-run against the live database.
+
+---
+
+## Session 21 — Multiple Marquees
+
+A puzzle can have more than one revealer, so the model changed from one marquee
+to a list.
+
+**Behaviour.** On a marquee: every themer **and the other marquees** light. On a
+themer: **all marquees** light, still never its sibling themers. One marquee
+behaves exactly as it did before — covered by an explicit test, since that is the
+case that must not regress.
+
+**The admin control went from radio to checkbox.** The radio was right when the
+model allowed exactly one marquee: it made a second impossible by construction
+rather than something to validate. Once several are legitimate, a radio is
+actively wrong. Both roles are checkboxes now, and they stay mutually exclusive
+*per answer* — an answer cannot be both a revealer and one of the things it
+reveals — so ticking one clears the other, in both directions.
+
+**Legacy data had to survive.** `'Matter of Fact'` already held a real authored
+theme in the old shape, `{"marquee":"42A","themers":[...]}`. Rather than migrate
+the row, `deserializeThemeSet` reads both shapes: `marquees` (a list) when
+present, otherwise the single `marquee` string. The next save rewrites it in the
+new shape. No migration, no data loss, and the tolerance is tested directly.
+
+Also tightened while in there: duplicate marquees are deduped, and an answer
+listed in both roles resolves to marquee only.
+
+### Two harness bugs, both mine, both the same lesson
+- `theme-admin.mjs` failed eight assertions — because it asserted absolute counts
+  ("2 marquees") while running against a puzzle that already carried a real
+  authored theme, so it was adding to an existing set. The app was correct
+  throughout. Fixed by clearing `theme_set` at the start; `before` was already
+  captured and restored, so nothing was at risk.
+- The lesson, twice over now: **a harness that assumes empty state will pass
+  until real data exists.** Seed the state you are asserting about.
+
+### Verification
+Logic: legacy shape round-trip, nine malformed inputs, the asymmetry from both
+ends, marquees not lighting themselves, and one-marquee behaviour unchanged.
+`theme-links.mjs` 15/15 (now including a legacy-shape case), `theme-admin.mjs`
+20/20, `a11y.mjs` zero violations across 13 states. Regression green: `backspace`
+(18), `cluebar-toggle` (13), `skipfilled`, `arrow-skip`, `solve`, `mobile-solve`,
+`revisit`, `banner`, `staleprogress`, `freshstart`, `timer-toggle`, `difficulty`,
+`stability`. `tsc` and `next build` clean. Screenshot confirms a marquee lighting
+the other marquee alongside the themers.
+
+Every harness restores the puzzle's original `theme_set` on exit — Jack's authored
+theme survived every run.

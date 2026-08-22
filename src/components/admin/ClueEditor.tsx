@@ -26,12 +26,12 @@ interface Props {
   onChangeThemeSet: (set: ThemeSet) => void
 }
 
-// One marquee per puzzle, so the marquee control is a RADIO and its name is
-// shared by both sections — two marquees become impossible by construction
-// rather than something to validate after the fact. Themer is a checkbox
-// because there are many. The two roles are mutually exclusive: taking one
+// Both roles are CHECKBOXES. A puzzle can carry more than one marquee — it was
+// a radio when the model allowed only one, which made a second marquee
+// impossible by construction; now that several are legitimate, a radio would be
+// actively wrong. The two roles stay mutually exclusive per answer: an answer
+// cannot be both a revealer and one of the things it reveals, so ticking one
 // clears the other.
-const MARQUEE_RADIO_NAME = 'theme-marquee'
 
 // The labels sit in a header row rather than on all 140 rows. Repeating
 // "Marquee"/"Themer" per clue drowned the clues themselves.
@@ -115,7 +115,7 @@ function ClueSection({
           <ThemeColumnHeader />
           {entries.map(entry => {
             const ref: ClueRef = { number: entry.number, direction }
-            const isMarquee = sameRef(themeSet.marquee, ref)
+            const isMarquee = themeSet.marquees.some(m => sameRef(m, ref))
             const isThemer = themeSet.themers.some(t => sameRef(t, ref))
             const label = `${entry.number} ${direction === 'across' ? 'Across' : 'Down'}`
             return (
@@ -169,14 +169,15 @@ function ClueSection({
               <div className="shrink-0 pt-2 flex items-center gap-3">
                 <span className="w-14 flex justify-center">
                   <input
-                    type="radio"
-                    name={MARQUEE_RADIO_NAME}
-                    data-marquee-radio={refToString(ref)}
+                    type="checkbox"
+                    data-marquee-checkbox={refToString(ref)}
                     checked={isMarquee}
-                    aria-label={`Make ${label} the marquee answer`}
-                    onChange={() =>
+                    aria-label={`Mark ${label} as a marquee answer`}
+                    onChange={e =>
                       onChangeThemeSet({
-                        marquee: ref,
+                        marquees: e.target.checked
+                          ? [...themeSet.marquees.filter(m => !sameRef(m, ref)), ref]
+                          : themeSet.marquees.filter(m => !sameRef(m, ref)),
                         themers: themeSet.themers.filter(t => !sameRef(t, ref)),
                       })
                     }
@@ -191,7 +192,7 @@ function ClueSection({
                     aria-label={`Mark ${label} as a theme answer`}
                     onChange={e =>
                       onChangeThemeSet({
-                        marquee: isMarquee ? null : themeSet.marquee,
+                        marquees: themeSet.marquees.filter(m => !sameRef(m, ref)),
                         themers: e.target.checked
                           ? [...themeSet.themers.filter(t => !sameRef(t, ref)), ref]
                           : themeSet.themers.filter(t => !sameRef(t, ref)),
@@ -222,15 +223,17 @@ export default function ClueEditor({
   const acrossEntries = buildEntries(grid, 'across')
   const downEntries = buildEntries(grid, 'down')
 
-  const hasTheme = themeSet.marquee !== null || themeSet.themers.length > 0
+  const marqueeCount = themeSet.marquees.length
+  const hasTheme = marqueeCount > 0 || themeSet.themers.length > 0
   // Advisory, never blocking — same posture as the clue-length warning. A theme
   // set is optional, and a half-finished one should say so rather than fail to
   // save. A themer list with no marquee has no hub, so the solver drops it.
   const warning =
-    themeSet.marquee === null && themeSet.themers.length > 0
-      ? 'No marquee chosen, so these theme answers will not highlight. Pick one.'
-      : themeSet.marquee !== null && themeSet.themers.length === 0
-      ? 'A marquee with no theme answers has nothing to highlight.'
+    marqueeCount === 0 && themeSet.themers.length > 0
+      ? 'No marquee chosen, so these theme answers will not highlight. Tick at least one.'
+      // Two marquees light each other, so only a LONE marquee has nothing to point at.
+      : marqueeCount === 1 && themeSet.themers.length === 0
+      ? 'A single marquee with no theme answers has nothing to highlight.'
       : null
 
   return (
@@ -243,7 +246,7 @@ export default function ClueEditor({
           {hasTheme ? (
             <button
               type="button"
-              onClick={() => onChangeThemeSet({ marquee: null, themers: [] })}
+              onClick={() => onChangeThemeSet({ marquees: [], themers: [] })}
               className="text-xs text-ink-soft underline hover:text-ink"
             >
               Clear theme
@@ -254,9 +257,9 @@ export default function ClueEditor({
           {hasTheme ? (
             <>
               <span className="font-semibold">
-                {themeSet.marquee ? refToString(themeSet.marquee) : '—'}
+                {marqueeCount > 0 ? themeSet.marquees.map(refToString).join(', ') : '—'}
               </span>{' '}
-              marquee
+              {marqueeCount === 1 ? 'marquee' : 'marquees'}
               {themeSet.themers.length > 0 && (
                 <>
                   {' · '}
@@ -270,8 +273,8 @@ export default function ClueEditor({
             </>
           ) : (
             <span className="text-ink-soft">
-              No theme set. Optional — pick a marquee and its theme answers below to have
-              them highlight each other in the solver.
+              No theme set. Optional — tick one or more marquees and their theme answers
+              below to have them highlight each other in the solver.
             </span>
           )}
         </p>

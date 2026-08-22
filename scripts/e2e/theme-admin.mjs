@@ -22,50 +22,72 @@ try {
   puzzleId = href.match(/puzzles\/([0-9a-f-]+)/)[1]
   before = (await get(puzzleId)).theme_set
   console.log(`editing ${puzzleId}, theme_set was ${JSON.stringify(before)}`)
+  // Start from empty so the counts below are absolute. The puzzle may already
+  // carry a real authored theme — this test asserted "2 marquees" and failed
+  // against a row that already had one, which is a bug in the test, not the app.
+  // `before` is restored in the finally block either way.
+  await put(puzzleId, {})
   await link.click()
   await page.waitForTimeout(2500)
 
   console.log('\n--- controls exist ---')
-  const radios = page.locator('[data-marquee-radio]')
+  const marqBoxes = page.locator('[data-marquee-checkbox]')
   const boxes  = page.locator('[data-themer-checkbox]')
-  ok('marquee radios rendered', await radios.count() > 0, `${await radios.count()}`)
+  ok('marquee checkboxes rendered', await marqBoxes.count() > 0, `${await marqBoxes.count()}`)
   ok('themer checkboxes rendered', await boxes.count() > 0, `${await boxes.count()}`)
   ok('summary says no theme yet', (await page.locator('[data-theme-summary]').innerText()).includes('No theme set'))
 
-  console.log('\n--- pick a marquee and two themers ---')
-  const marqRef = await radios.nth(0).getAttribute('data-marquee-radio')
-  await radios.nth(0).check()
+  console.log('\n--- pick TWO marquees and two themers ---')
+  const m1 = await marqBoxes.nth(0).getAttribute('data-marquee-checkbox')
+  const m2 = await marqBoxes.nth(3).getAttribute('data-marquee-checkbox')
+  await marqBoxes.nth(0).check(); await marqBoxes.nth(3).check()
   const t1 = await boxes.nth(1).getAttribute('data-themer-checkbox')
   const t2 = await boxes.nth(2).getAttribute('data-themer-checkbox')
   await boxes.nth(1).check(); await boxes.nth(2).check()
   const summary = await page.locator('[data-theme-summary]').innerText()
-  ok('summary shows the marquee', summary.includes(marqRef), summary.replace(/\s+/g,' ').slice(0,90))
+  ok('two marquees can be ticked at once',
+     await page.locator('[data-marquee-checkbox]:checked').count() === 2)
+  ok('summary lists both marquees', summary.includes(m1) && summary.includes(m2),
+     summary.replace(/\s+/g,' ').slice(0,100))
+  ok('summary pluralises to "marquees"', summary.includes('marquees'))
   ok('summary counts 2 theme answers', summary.includes('2 theme answers'))
 
-  console.log('\n--- the roles are mutually exclusive ---')
-  // make the FIRST themer the marquee; it must leave the themer list
-  await page.locator(`[data-marquee-radio="${t1}"]`).check()
+  console.log('\n--- the two roles are still mutually exclusive per answer ---')
+  // ticking a themer's marquee box must remove it from the themer list
+  await page.locator(`[data-marquee-checkbox="${t1}"]`).check()
   const s2 = await page.locator('[data-theme-summary]').innerText()
-  ok(`${t1} is now the marquee`, s2.includes(t1))
+  ok(`${t1} is now a marquee`, s2.includes(t1))
   ok(`${t1} was dropped from themers`, await page.locator(`[data-themer-checkbox="${t1}"]`).isChecked() === false)
-  ok('only one marquee radio checked', await page.locator('[data-marquee-radio]:checked').count() === 1)
-  // put it back
-  await page.locator(`[data-marquee-radio="${marqRef}"]`).check()
+  ok('three marquees now ticked', await page.locator('[data-marquee-checkbox]:checked').count() === 3)
+  // and the reverse: ticking its themer box removes it from the marquees
   await page.locator(`[data-themer-checkbox="${t1}"]`).check()
+  ok(`${t1} left the marquees again`,
+     await page.locator(`[data-marquee-checkbox="${t1}"]`).isChecked() === false)
+  ok('back to two marquees', await page.locator('[data-marquee-checkbox]:checked').count() === 2)
+
+  console.log('\n--- unticking a marquee removes just that one ---')
+  await page.locator(`[data-marquee-checkbox="${m2}"]`).uncheck()
+  ok('one marquee left', await page.locator('[data-marquee-checkbox]:checked').count() === 1)
+  ok('summary is singular again', (await page.locator('[data-theme-summary]').innerText()).includes('marquee'))
+  await page.locator(`[data-marquee-checkbox="${m2}"]`).check()
 
   console.log('\n--- save ---')
   await page.locator('button:has-text("Save")').first().click()
   await page.waitForTimeout(3500)
   const after = (await get(puzzleId)).theme_set
   console.log('  DB now:', JSON.stringify(after))
-  ok('marquee persisted', after && after.marquee === marqRef, `${after && after.marquee} vs ${marqRef}`)
+  ok('both marquees persisted', after && Array.isArray(after.marquees) &&
+     after.marquees.length === 2 && after.marquees.includes(m1) && after.marquees.includes(m2),
+     JSON.stringify(after && after.marquees))
   ok('both themers persisted', after && after.themers && after.themers.length === 2 &&
      after.themers.includes(t1) && after.themers.includes(t2), JSON.stringify(after && after.themers))
 
   console.log('\n--- reopen the editor: controls reflect saved state ---')
   await page.goto(`http://localhost:3000/admin/puzzles/${puzzleId}/edit`,{waitUntil:'networkidle'})
   await page.waitForTimeout(2500)
-  ok('marquee radio checked on load', await page.locator(`[data-marquee-radio="${marqRef}"]`).isChecked())
+  ok('both marquee checkboxes checked on load',
+     await page.locator(`[data-marquee-checkbox="${m1}"]`).isChecked() &&
+     await page.locator(`[data-marquee-checkbox="${m2}"]`).isChecked())
   ok('themer checkboxes checked on load',
      await page.locator(`[data-themer-checkbox="${t1}"]`).isChecked() &&
      await page.locator(`[data-themer-checkbox="${t2}"]`).isChecked())
