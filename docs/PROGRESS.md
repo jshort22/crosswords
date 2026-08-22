@@ -1450,3 +1450,40 @@ dead gaps between them.
 Also worth recording: a zombie dev server on port 3000 made a correct CSS fix
 look like it did nothing. `pkill -f "next dev"` does not kill it — the process is
 `next-server`. Use `lsof -ti:3000 | xargs kill -9`.
+
+### Session 21d — Full-but-wrong is a modal now, shown once
+The message was an inline pill rendered **inside the grid column**, so it
+appeared and vanished in the grid's own space and resized the grid at the exact
+moment you were reading it. It is now a centred modal with a **Keep trying**
+button, NYT-style. Verified the grid's bounding box is identical before and
+after: `660x660 @326,139.5` either way.
+
+**Shown once per attempt**, tracked by `crossword-wrongshown-{id}`. The message
+is "the grid is full but not right"; once that has landed, repeating it every
+time the grid happens to be full and wrong is nagging. `handleReset` clears the
+flag — a fresh attempt earns the message again, otherwise resetting a puzzle you
+had given up on would leave you with no feedback at all.
+
+The trade being made: on a second and later full-but-wrong grid there is now no
+feedback at all. That is what was asked for and it is defensible, but it is worth
+watching in real use — "did that register?" is the failure mode to look for.
+
+The button keeps `autoFocus` because focus belongs inside a modal dialog, but the
+browser's default blue focus ring is off-palette here, so it is **restyled**
+rather than removed — removing a visible focus indicator fails WCAG 2.4.7.
+
+### One knock-on worth recording
+A modal intercepts pointer events, so **any harness that fills a grid with wrong
+letters and then keeps clicking will hang**. `skipfilled.mjs` does exactly that
+for its last assertion and started timing out with `<div data-wrong-modal>
+intercepts pointer events`. Setting `crossword-wrongshown-{id}` up front is the
+intended opt-out, and it is now documented in the harness README.
+
+`a11y.mjs` gained a scan for the new dialog, seeding a full-but-wrong grid
+through localStorage rather than typing 187 cells — which also exercises the
+restore path. Clean across 14 states.
+
+Verified: `wrong-modal` 15/15, `banner` updated and green, `skipfilled` 10/10
+after the opt-out, plus `hold-delete`, `backspace` (18), `cluebar-toggle` (13),
+`key-hits` (15), `solve`, `mobile-solve`, `revisit`, `staleprogress`,
+`freshstart`, `timer-toggle`, `difficulty`, `stability`, `theme-links` (15).

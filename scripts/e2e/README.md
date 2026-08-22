@@ -66,6 +66,12 @@ curl -sS "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/puzzles?select=clues_across,clues_do
 
 `admin-cluewarn.mjs` and `theme-admin.mjs` need the admin password; it is hardcoded as `rebus`.
 
+**If your test fills a grid with wrong letters and then keeps clicking**, set
+`crossword-wrongshown-<id>` in `localStorage` first. A full-but-wrong grid raises
+the "Not quite" modal, and being a modal it intercepts pointer events — every
+click after that times out with `<div data-wrong-modal> intercepts pointer
+events`. That flag is the intended opt-out. `skipfilled.mjs` does this.
+
 `skipfilled.mjs` derives its own test words from `/tmp/grid.json`, so it works
 on any puzzle — pass the id as the only argument and fetch the matching grid.
 
@@ -106,6 +112,7 @@ Three tests "failed" against correct code before that was in place.
 | `theme-admin.mjs` | The admin round-trip for theme links: the radios/checkboxes render, the summary updates, the two roles are mutually exclusive, only one marquee can be checked, it saves to the DB, the editor reflects it on reload, and the solver highlights it. Logs in with the hardcoded password and **restores the puzzle's original `theme_set` afterwards**. Needs `set -a && source .env.local && set +a` |
 | `hold-delete.mjs [id]` | Press-and-hold on the mobile ⌫: a 1200ms hold clears many cells (not one — that is the stale-callback failure mode), a tap still clears exactly one, releasing stops it, sliding a finger off the key stops it, and holding past the start of the grid empties it without error |
 | `key-hits.mjs [id]` | Keyboard hit targets on three phone sizes: every key centre hits the right key, every key gap and row gap is live (they used to be dead), no dead pixels across a full key pitch, and no key steals its neighbour. **Run this against a production build** — the dev overlay covers the keyboard and makes it fail. |
+| `wrong-modal.mjs [id]` | The full-but-wrong modal: it appears centred, the grid's box does not move or resize, the button reads "Keep trying" and dismisses it, it does **not** return on a later full-but-wrong grid, a Reset earns it again, and fixing the last letter still celebrates |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

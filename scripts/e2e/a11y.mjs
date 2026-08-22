@@ -60,6 +60,35 @@ await scan('Completion modal (desktop)', DESKTOP, async p => {
   await p.evaluate(id => localStorage.removeItem('crossword-progress-'+id), ID)
   const cells = await p.evaluate(() => [...document.querySelectorAll('[data-grid] > div')].map(d => d.getAttribute('data-cell')))
   await p.waitForTimeout(200) })
+// Seed a full-but-wrong grid through localStorage so the "Not quite" dialog is
+// up when axe runs — far faster than typing 187 cells, and it exercises the
+// restore path at the same time.
+await scan('Wrong-answer modal (desktop)', DESKTOP, async p => {
+  await p.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
+  const cells = await p.evaluate(() => {
+    const d = [...document.querySelectorAll('[data-grid] > div')]
+    const cols = getComputedStyle(document.querySelector('[data-grid]')).gridTemplateColumns.split(' ').length
+    const rows = d.length / cols
+    const out = []
+    for (let r = 0; r < rows; r++) {
+      const row = []
+      for (let c = 0; c < cols; c++) {
+        const el = d[r * cols + c]
+        const black = el.getAttribute('data-cell') === 'black'
+        row.push({ userLetter: black ? '' : 'Q', isRevealed: false, isChecked: false, isCorrect: null })
+      }
+      out.push(row)
+    }
+    return out
+  })
+  await p.evaluate(([id, cells]) => {
+    localStorage.setItem(`crossword-progress-${id}`, JSON.stringify({ cells, elapsed: 42 }))
+  }, [ID, cells])
+  await p.reload({ waitUntil: 'networkidle' })
+  await p.waitForSelector('[data-wrong-modal]', { timeout: 8000 }).catch(() => {})
+  await p.waitForTimeout(400)
+})
+
 await scan('Admin login', DESKTOP, async p => {
   await p.goto('http://localhost:3000/admin/login', { waitUntil: 'networkidle' }) })
 // Behind the password gate: the clue editor is where the theme controls live,
