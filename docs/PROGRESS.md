@@ -1105,3 +1105,68 @@ wrapping is fine for a cursor move and wrong for a destructive one. It now stops
 at the first clue in a direction, which is a real terminus, not stuckness.
 `backspace.mjs` grew to 18 assertions, covering the no-wrap stop and that the
 highlighted word follows the cursor across a boundary.
+
+---
+
+## Session 19 — WCAG 2.2 Audit
+
+Prompted by the accessible-name regression in 18b: if one had been introduced
+without noticing, what else was already there?
+
+### The standard
+**WCAG 2.2 is the current W3C Recommendation** — 5 October 2023, updated
+12 December 2024, and now also ISO/IEC 40500:2025. WCAG 3.0 is still an early
+draft with no recommendation date, so it is not a target. 2.2 added nine success
+criteria over 2.1 and removed 4.1.1 Parsing as obsolete. The ones that actually
+bear on this app are **2.5.8 Target Size (Minimum)** and **3.3.8 Accessible
+Authentication**, both new at AA/A.
+
+### What was found
+Scanned with axe-core 4.13 across 11 states — both themes, both viewports, and
+the overlay states a page-load scan never reaches (... menu, clue sheet,
+completion modal, admin login).
+
+- **`--ink-soft` failed 1.4.3.** #7a7367 measured **4.16:1 on `--sunken`** and
+  4.28:1 on `--canvas`, against the 4.5:1 required for normal text. It only
+  passed on pure white. This is every piece of secondary text in the light
+  theme — clue numbers in the bar, card metadata, the "Time"/"Difficulty"
+  captions. Now #746d62: 4.53 / 4.66 / 5.11. Dark already passed, untouched.
+- **The solver's back link had no accessible name on mobile** (2.4.4 / 4.1.2,
+  Level A). Its label is `hidden md:inline` and the arrow is `aria-hidden`, so
+  on a phone the link was announced as nothing at all.
+- **The gold trophy shipped in Session 17 was 2.42:1 on white** — under the 3:1
+  that 1.4.11 asks of meaningful non-text. Introduced two sessions ago and not
+  noticed, which is the same lesson as 18b.
+- Admin login: no `main` landmark, and the password field was labelled only by
+  its placeholder, which vanishes exactly when you might need it (3.3.2).
+- Two unlabelled `aside` landmarks on the desktop solver; the mobile clue bar,
+  keyboard and menu sat outside any landmark.
+
+### The `--gold` / `--gold-ink` split
+Rather than darken `--gold` and dull the celebration sweep, gold now follows the
+same colour/soft/ink shape as `--accent` and `--danger`: `--gold` stays the fill
+(large areas, lightness is the point), `--gold-ink` is dark enough to read as a
+small mark, `--gold-soft` is its field. The completion modal's mark became the
+same trophy on `--gold-soft`, so card and modal now agree.
+
+### Left as known, not fixed silently
+- **`--cell-num`** is 3.62:1 light and 4.18:1 dark against the cell. Fixing it
+  means darkening the grid numbers, which changes the look of the one element
+  the whole design is built around. Jack's call, not a quiet edit.
+- **Grid cells are 22px** at 15x15 and ~17px at 21x21, under 2.5.8's 24px. Taken
+  as the criterion's *essential* exception: a crossword has to show every column
+  at once. Every actual button and link passes 24x24 — verified, not assumed.
+
+### Verification
+`a11y.mjs`: **zero violations across all 11 states**, light and dark. The
+`display:contents` landmark wrapper was checked against the measured layout —
+bar still 76px, grid still 342px at both 15x15 and 21x21. Full suite green:
+`backspace` (18), `cluebar-toggle` (13), `skipfilled`, `arrow-skip`, `solve`,
+`mobile-solve`, `revisit`, `banner`, `staleprogress`, `freshstart`,
+`timer-toggle`, `difficulty`, `title-shift`, `stability`, `cluebar`. `tsc` and
+`next build` clean. Modal shot in both modes.
+
+**This is not a claim the app is fully accessible.** The grid is a `div` with
+key handlers and has never been tested with a real screen reader; nothing here
+was verified on actual iOS VoiceOver. It means the automated WCAG 2.2 A/AA
+checks pass and the specific defects above are gone.

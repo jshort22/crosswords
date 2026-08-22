@@ -28,7 +28,7 @@ export default function PuzzleCardActions({ puzzleId }: Props) {
            ever visible once localStorage says so, which makes it easy to break
            unnoticed — select on this, not on the icon or the colour. */
         <div data-solved-mark="" className="flex items-center justify-center gap-1.5 text-[13px] text-accent font-bold">
-          <svg viewBox="0 0 24 24" width="15" height="15" className="text-gold" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg viewBox="0 0 24 24" width="15" height="15" className="text-gold-ink" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
             <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
             <path d="M6 2h12v7a6 6 0 0 1-12 0V2Z" />

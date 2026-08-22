@@ -342,8 +342,12 @@ export default function SolverClient({ puzzle }: Props) {
         {/* Left: back button. w-40 on desktop matches the aside so the title
             centres over the grid; auto width on mobile. */}
         <div className="md:w-40 shrink-0 px-3 py-2 md:px-4 md:py-3 flex items-center">
+          {/* aria-label is load-bearing on mobile: the visible label is
+              `hidden md:inline` and the arrow is aria-hidden, so without it the
+              link has NO accessible name on a phone (WCAG 2.4.4 / 4.1.2). */}
           <Link
             href="/"
+            aria-label="All puzzles"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-sunken text-xs md:text-[13px] font-medium text-ink-soft hover:text-ink transition-colors whitespace-nowrap"
           >
             <span aria-hidden>←</span>
@@ -410,6 +414,8 @@ export default function SolverClient({ puzzle }: Props) {
       {isMobile && menuOpen && (
         <div className="md:hidden fixed inset-0 z-30" onClick={() => setMenuOpen(false)}>
           <div
+            role="dialog"
+            aria-label="Puzzle options"
             className="absolute right-2 top-2 w-56 rounded-[20px] bg-surface p-2.5 shadow-float flex flex-col gap-2 mt-[env(safe-area-inset-top)]"
             onClick={e => e.stopPropagation()}
           >
@@ -428,7 +434,7 @@ export default function SolverClient({ puzzle }: Props) {
       {/* Main area */}
       <main className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left action panel */}
-        <aside className="hidden md:flex flex-col w-40 border-r border-line bg-sunken p-3 gap-2">
+        <aside aria-label="Puzzle actions" className="hidden md:flex flex-col w-40 border-r border-line bg-sunken p-3 gap-2">
           <SolverActions variant="sidebar" onReset={handleReset} onShowIncorrect={showIncorrect} />
         </aside>
 
@@ -476,7 +482,7 @@ export default function SolverClient({ puzzle }: Props) {
         </div>
 
         {/* Clue panels — hidden on small screens, shown on medium+ */}
-        <aside className="hidden md:flex flex-col w-64 lg:w-72 border-l border-line bg-surface overflow-hidden">
+        <aside aria-label="Clues" className="hidden md:flex flex-col w-64 lg:w-72 border-l border-line bg-surface overflow-hidden">
           <div className="flex-1 overflow-hidden flex flex-col border-b border-line">
             <CluePanel
               title="Across"
@@ -501,7 +507,12 @@ export default function SolverClient({ puzzle }: Props) {
           their handlers never mount on desktop; the md:hidden inside each also
           covers the first frame before useSyncExternalStore resolves. */}
       {isMobile && (
-        <>
+        // A labelled <section> is a `region` landmark, which is what puts the
+        // clue bar and keyboard inside one — they sit outside <main> so they
+        // pin to the bottom of the shell, which otherwise leaves them
+        // landmark-less. `contents` keeps them direct flex children of the
+        // shell, so the measured layout (76px bar, 342px grid) is untouched.
+        <section aria-label="Clue and keyboard" className="contents">
           <ClueBar
             clue={activeClue ?? null}
             direction={state.direction}
@@ -514,7 +525,7 @@ export default function SolverClient({ puzzle }: Props) {
             onDelete={inputBackspace}
             disabled={state.isComplete}
           />
-        </>
+        </section>
       )}
 
       {isMobile && sheetOpen && (

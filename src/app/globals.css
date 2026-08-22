@@ -19,7 +19,11 @@
   --surface: #ffffff;         /* cards, header, panels */
   --sunken: #f4f1ea;          /* recessed: thumbnails, keyboard bed, clue bar */
   --ink: #1e1b17;
-  --ink-soft: #7a7367;
+  /* #7a7367 measured 4.16:1 on --sunken and 4.28:1 on --canvas — under the
+     4.5:1 that WCAG 1.4.3 asks of normal-size text. This clears it on all
+     three light grounds (4.53 / 4.66 / 5.11) and is barely distinguishable
+     from the old value. Dark's --ink-soft already passed and is untouched. */
+  --ink-soft: #746d62;
   --line: #e7e1d9;
 
   --accent: #14776a;
@@ -37,7 +41,15 @@
   --cell-active: #14776a;     /* the cursor */
   --cell-active-ink: #ffffff;
 
-  --gold: #d99b2b;            /* celebration + the solved trophy on a card */
+  /* --gold is the CELEBRATION fill: large areas, where its lightness is the
+     point. As a small foreground mark it only reaches 2.42:1 on white, under
+     the 3:1 WCAG 1.4.11 asks of meaningful non-text. --gold-ink is the same
+     hue taken dark enough to read as an icon (3.74 on surface, 3.32 on sunken,
+     3.20 on --gold-soft); --gold-soft is its tinted field. Same
+     colour/soft/ink shape as --accent and --danger. */
+  --gold: #d99b2b;            /* celebration fill only */
+  --gold-ink: #ac7b22;        /* gold as a small foreground mark */
+  --gold-soft: #f8ecd5;       /* field behind --gold-ink */
   --gold-sweep: rgba(217, 155, 43, 0.5);
   --danger: #a8321f;
   --danger-soft: #fbe7e2;
@@ -75,6 +87,8 @@
   --cell-active-ink: #10221e;
 
   --gold: #e8bc72;
+  --gold-ink: #e8bc72;        /* already 9.47:1 on dark surface */
+  --gold-soft: #3a2e1a;
   --gold-sweep: rgba(232, 188, 114, 0.42);
   --danger: #f0a094;
   --danger-soft: #3a201b;
@@ -114,6 +128,8 @@
   --color-cell-active-ink: var(--cell-active-ink);
 
   --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft: var(--gold-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
 

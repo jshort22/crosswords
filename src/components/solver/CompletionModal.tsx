@@ -21,9 +21,17 @@ export default function CompletionModal({ title, difficulty, elapsedSeconds, onC
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm"
     >
       <div className="bg-surface rounded-[26px] shadow-float p-8 mx-4 max-w-sm w-full text-center animate-pop-in">
-        <div data-complete-mark="" className="mx-auto mb-5 w-14 h-14 rounded-full bg-accent-soft flex items-center justify-center text-accent-soft-ink">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M20 6L9 17l-5-5" />
+        {/* Trophy, matching the mark on the library card — the reward reads the
+            same in both places. --gold-ink rather than --gold: the celebration
+            gold is a fill colour and only makes 2.42:1 as a small mark. */}
+        <div data-complete-mark="" className="mx-auto mb-5 w-14 h-14 rounded-full bg-gold-soft flex items-center justify-center text-gold-ink">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+            <path d="M6 2h12v7a6 6 0 0 1-12 0V2Z" />
+            <path d="M10 14.5V17c0 .8-.6 1.2-1.2 1.5-.9.5-1.8 1.6-1.8 3.5" />
+            <path d="M14 14.5V17c0 .8.6 1.2 1.2 1.5.9.5 1.8 1.6 1.8 3.5" />
+            <path d="M4 22h16" />
           </svg>
         </div>
 
