@@ -1376,3 +1376,38 @@ the other marquee alongside the themers.
 
 Every harness restores the puzzle's original `theme_set` on exit — Jack's authored
 theme survived every run.
+
+### Session 21b — Hold-to-repeat on the on-screen delete key
+The mobile ⌫ fired once per tap; holding it did nothing. The physical key never
+had this problem because the OS repeats `keydown` itself — which is why the
+original Session 17 bug report said "if you hold down the backspace key" and
+still described real behaviour.
+
+400ms before the first repeat, then every 80ms — about twelve cells a second,
+brisk enough to clear a long answer and slow enough to stop where you meant to.
+The delay is long enough that a normal tap never repeats. **Letters deliberately
+do not repeat**: holding a letter should never type "AAAA" into a crossword.
+
+### The part that would have been a silent bug
+`onDelete` is `inputBackspace`, a `useCallback` over solver state — so it is a
+**new function after every single deletion**. An interval closing over the one
+that existed at pointerdown would keep calling a stale closure: it deletes one
+cell and then spins, re-deleting an already-empty cell forever. The repeat
+therefore calls through a ref that an effect keeps pointing at the current
+`onDelete`.
+
+This is also why `hold-delete.mjs` asserts **cells cleared**, not events fired.
+An event-count test passes with the stale-closure bug fully present; only
+counting cells catches it. Verified failing against the pre-change code (1 cell
+cleared vs 11) before it passed.
+
+Stopped on pointerup, pointercancel **and pointerleave** — sliding a finger off
+a key fires no pointerup on that element, so without pointerleave the repeat
+would run until the next tap. Also cleared on unmount and when `disabled` flips
+mid-hold, either of which would otherwise leave a live interval.
+
+Holding past the start of the grid is safe because Session 18b already stopped
+backspace wrapping: it runs out of cells and stops rather than looping the grid.
+
+Verified: `hold-delete` 8/8, `mobile-solve`, `backspace` (18), `cluebar-toggle`
+(13), `stability`, `a11y` all green.
