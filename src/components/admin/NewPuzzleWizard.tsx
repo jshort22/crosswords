@@ -31,17 +31,17 @@ function MetadataStep({
   return (
     <div className="space-y-5 max-w-md">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+        <label className="block text-sm font-medium text-ink mb-1">Title *</label>
         <input
           type="text"
           value={value.title}
           onChange={e => onChange({ ...value, title: e.target.value })}
           placeholder="My Crossword"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+          className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-ink mb-2">
           Difficulty: <strong>{difficultyLabel(value.difficulty)}</strong>
         </label>
         <div className="flex gap-2">
@@ -51,8 +51,8 @@ function MetadataStep({
               onClick={() => onChange({ ...value, difficulty: d })}
               className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-colors ${
                 value.difficulty === d
-                  ? 'bg-amber-400 border-amber-400 text-white'
-                  : 'border-gray-200 text-gray-600 hover:border-amber-300'
+                  ? 'bg-accent border-accent text-accent-ink'
+                  : 'border-line text-ink-soft hover:border-accent'
               }`}
             >
               {difficultyLabel(d)}
@@ -64,7 +64,7 @@ function MetadataStep({
         <button
           onClick={onNext}
           disabled={!valid}
-          className="w-10 h-10 rounded-full bg-amber-400 hover:bg-amber-500 disabled:opacity-40 text-white text-lg font-bold transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-full bg-accent hover:opacity-90 disabled:opacity-40 text-accent-ink text-lg font-bold transition-colors flex items-center justify-center"
           title="Next: Build Grid"
         >
           →
@@ -110,7 +110,7 @@ function GridEditorStep({
     <div className="space-y-5">
       <div className="flex items-end gap-3 flex-wrap">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Preset</label>
+          <label className="block text-xs text-ink-soft mb-1">Preset</label>
           <div className="flex gap-2">
             {([15, 21] as const).map(n => (
               <button
@@ -118,8 +118,8 @@ function GridEditorStep({
                 onClick={() => applyPreset(n, n)}
                 className={`py-1.5 px-3 rounded-lg border text-sm font-medium transition-colors ${
                   rows === n && cols === n
-                    ? 'bg-amber-400 border-amber-400 text-white'
-                    : 'border-gray-200 text-gray-600 hover:border-amber-300'
+                    ? 'bg-accent border-accent text-accent-ink'
+                    : 'border-line text-ink-soft hover:border-accent'
                 }`}
               >
                 {n}×{n}
@@ -128,30 +128,30 @@ function GridEditorStep({
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Rows</label>
+          <label className="block text-xs text-ink-soft mb-1">Rows</label>
           <input
             type="number"
             min={3}
             max={25}
             value={rows}
             onChange={e => setRows(Number(e.target.value))}
-            className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="w-20 border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Cols</label>
+          <label className="block text-xs text-ink-soft mb-1">Cols</label>
           <input
             type="number"
             min={3}
             max={25}
             value={cols}
             onChange={e => setCols(Number(e.target.value))}
-            className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="w-20 border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <button
           onClick={applySize}
-          className="py-1.5 px-4 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          className="py-1.5 px-4 rounded-lg border border-line text-sm text-ink hover:bg-sunken transition-colors"
         >
           Resize (clears grid)
         </button>
@@ -162,7 +162,7 @@ function GridEditorStep({
       </div>
 
       {!allFilled && (
-        <p className="text-xs text-orange-500">
+        <p className="text-xs text-diff-4">
           Some white cells are missing letters — you&apos;ll need to fill them all before publishing.
         </p>
       )}
@@ -170,14 +170,14 @@ function GridEditorStep({
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 text-lg font-bold transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-full border border-line text-ink-soft hover:bg-sunken text-lg font-bold transition-colors flex items-center justify-center"
           title="Back"
         >
           ←
         </button>
         <button
           onClick={onNext}
-          className="w-10 h-10 rounded-full bg-amber-400 hover:bg-amber-500 text-white text-lg font-bold transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-full bg-accent hover:opacity-90 text-accent-ink text-lg font-bold transition-colors flex items-center justify-center"
           title="Next: Enter Clues"
         >
           →
@@ -270,10 +270,10 @@ function CluesStep({
           <label
             className={`flex items-center gap-2 border border-dashed rounded-xl px-4 py-3 transition-colors ${
               uploadStatus === 'uploading'
-                ? 'opacity-60 cursor-not-allowed border-gray-200'
+                ? 'opacity-60 cursor-not-allowed border-line'
                 : dragging
-                ? 'border-amber-400 bg-amber-50 cursor-copy'
-                : 'cursor-pointer hover:border-amber-300 border-gray-200'
+                ? 'border-accent bg-accent-soft cursor-copy'
+                : 'cursor-pointer hover:border-accent border-line'
             }`}
             onDragOver={handleDragOver}
             onDragEnter={handleDragOver}
@@ -281,7 +281,7 @@ function CluesStep({
             onDrop={handleDrop}
           >
             <span className="text-lg">{uploadStatus === 'uploading' ? '⏳' : extracting ? '🔍' : uploadStatus === 'done' ? '✅' : '📄'}</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-ink-soft">
               {uploadStatus === 'uploading'
                 ? 'Uploading…'
                 : extracting
@@ -300,11 +300,11 @@ function CluesStep({
           </label>
 
           {uploadError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{uploadError}</p>
+            <p className="text-xs text-danger bg-danger-soft border border-danger rounded-lg px-3 py-2">{uploadError}</p>
           )}
 
           {sourceFileUrl && (
-            <div className="rounded-xl overflow-hidden border border-gray-200">
+            <div className="rounded-xl overflow-hidden border border-line">
               {isPdf ? (
                 <iframe
                   src={`${sourceFileUrl}#page=2`}
@@ -337,14 +337,14 @@ function CluesStep({
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 text-lg font-bold transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-full border border-line text-ink-soft hover:bg-sunken text-lg font-bold transition-colors flex items-center justify-center"
           title="Back"
         >
           ←
         </button>
         <button
           onClick={onNext}
-          className="w-10 h-10 rounded-full bg-amber-400 hover:bg-amber-500 text-white text-lg font-bold transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-full bg-accent hover:opacity-90 text-accent-ink text-lg font-bold transition-colors flex items-center justify-center"
           title="Next: Preview & Publish"
         >
           →
@@ -413,7 +413,7 @@ function PreviewStep({
 
   return (
     <div className="space-y-5">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm space-y-1">
+      <div className="bg-accent-soft border border-accent rounded-xl p-4 text-sm space-y-1">
         <p><strong>Title:</strong> {metadata.title}</p>
         <p><strong>Difficulty:</strong> {difficultyLabel(metadata.difficulty)}</p>
         <p><strong>Grid:</strong> {grid.length}×{grid[0]?.length}</p>
@@ -422,28 +422,28 @@ function PreviewStep({
       </div>
 
       {!allFilled && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-700">
+        <div className="bg-diff-4-soft border border-line rounded-xl p-3 text-xs text-diff-4">
           <strong>Grid incomplete:</strong> some white cells are missing solution letters. Publishing is disabled until all cells are filled.
         </div>
       )}
 
       {missingClues.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-700">
+        <div className="bg-diff-4-soft border border-line rounded-xl p-3 text-xs text-diff-4">
           <strong>Missing clues:</strong> {missingClues.join(', ')}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700">
+        <div className="bg-danger-soft border border-danger rounded-xl p-3 text-xs text-danger">
           {error}
         </div>
       )}
 
-      <details className="border border-gray-200 rounded-xl overflow-hidden">
-        <summary className="px-4 py-3 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50">
+      <details className="border border-line rounded-xl overflow-hidden">
+        <summary className="px-4 py-3 text-sm font-medium text-ink cursor-pointer hover:bg-sunken">
           Preview puzzle (interactive)
         </summary>
-        <div className="overflow-auto max-h-[60vh] p-4 bg-gray-50">
+        <div className="overflow-auto max-h-[60vh] p-4 bg-sunken">
           <SolverClient puzzle={previewPuzzle} />
         </div>
       </details>
@@ -452,7 +452,7 @@ function PreviewStep({
         <button
           onClick={onBack}
           disabled={saving}
-          className="w-10 h-10 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg font-bold transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-full border border-line text-ink-soft hover:bg-sunken disabled:opacity-40 text-lg font-bold transition-colors flex items-center justify-center"
           title="Back"
         >
           ←
@@ -461,7 +461,7 @@ function PreviewStep({
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="py-2.5 px-4 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 font-medium text-sm transition-colors disabled:opacity-40"
+            className="py-2.5 px-4 rounded-xl border border-accent text-accent hover:bg-accent-soft font-medium text-sm transition-colors disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Save as Draft'}
           </button>
@@ -469,7 +469,7 @@ function PreviewStep({
             onClick={() => handleSave(true)}
             disabled={saving || !allFilled}
             title={!allFilled ? 'Fill all grid cells before publishing' : undefined}
-            className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:opacity-40 text-white font-semibold text-sm transition-colors"
+            className="py-2.5 px-4 rounded-xl bg-accent hover:opacity-90 disabled:opacity-40 text-accent-ink font-semibold text-sm transition-colors"
           >
             {saving ? 'Publishing…' : 'Publish'}
           </button>
@@ -524,12 +524,12 @@ export default function NewPuzzleWizard() {
   }, [supabase, metadata, grid, cluesAcross, cluesDown, sourceFileUrl, router])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-sunken">
+      <header className="bg-surface border-b border-line">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3 mb-3">
           <a
             href="/admin"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink border border-line rounded-lg px-3 py-1.5 transition-colors shrink-0"
           >
             ← Admin
           </a>
@@ -538,7 +538,7 @@ export default function NewPuzzleWizard() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-xl font-bold text-gray-900 mb-6">
+        <h1 className="text-xl font-bold text-ink mb-6">
           {['Puzzle Details', 'Build Grid', 'Enter Clues', 'Preview & Publish'][step]}
         </h1>
 

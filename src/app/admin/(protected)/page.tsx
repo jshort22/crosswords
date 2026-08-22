@@ -17,21 +17,21 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-sunken">
+      <header className="bg-surface border-b border-line">
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink border border-line rounded-lg px-3 py-1.5 transition-colors"
             >
               ← Home
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Puzzle Admin</h1>
+            <h1 className="text-xl font-bold text-ink">Puzzle Admin</h1>
           </div>
           <Link
             href="/admin/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-sm transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:opacity-90 text-accent-ink font-semibold text-sm transition-colors"
           >
             + New Puzzle
           </Link>
@@ -40,54 +40,54 @@ export default async function AdminPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-center">
-            <p className="font-semibold text-red-800 mb-1">Couldn&apos;t load puzzles</p>
-            <p className="text-sm text-red-700 mb-3">
+          <div className="rounded-xl border border-danger bg-danger-soft px-4 py-6 text-center">
+            <p className="font-semibold text-danger mb-1">Couldn&apos;t load puzzles</p>
+            <p className="text-sm text-danger mb-3">
               The database query failed &mdash; this is not an empty library. Check that the Supabase
               project is running and not paused.
             </p>
-            <code className="inline-block text-xs text-red-900/70 bg-red-100 rounded px-2 py-1">
+            <code className="inline-block text-xs text-danger/70 bg-danger-soft rounded px-2 py-1">
               {error.message}
             </code>
           </div>
         ) : !puzzles || puzzles.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-500 mb-4">No puzzles yet.</p>
+            <p className="text-ink-soft mb-4">No puzzles yet.</p>
             <Link
               href="/admin/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:opacity-90 text-accent-ink font-semibold transition-colors"
             >
               Create your first puzzle
             </Link>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-surface rounded-xl border border-line overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Title</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Size</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Difficulty</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
+                <tr className="border-b border-line bg-sunken">
+                  <th className="text-left px-4 py-3 font-semibold text-ink-soft">Title</th>
+                  <th className="text-left px-4 py-3 font-semibold text-ink-soft hidden md:table-cell">Size</th>
+                  <th className="text-left px-4 py-3 font-semibold text-ink-soft hidden md:table-cell">Difficulty</th>
+                  <th className="text-left px-4 py-3 font-semibold text-ink-soft">Status</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {puzzles.map(puzzle => (
-                  <tr key={puzzle.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{puzzle.title}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
+                  <tr key={puzzle.id} className="border-b border-line hover:bg-sunken/50">
+                    <td className="px-4 py-3 font-medium text-ink">{puzzle.title}</td>
+                    <td className="px-4 py-3 text-ink-soft hidden md:table-cell">
                       {puzzle.grid_size_rows}×{puzzle.grid_size_cols}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
+                    <td className="px-4 py-3 text-ink-soft hidden md:table-cell">
                       {difficultyLabel(puzzle.difficulty)}
                     </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                           puzzle.is_published
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-500'
+                            ? 'bg-diff-1-soft text-diff-1'
+                            : 'bg-sunken text-ink-soft'
                         }`}
                       >
                         {puzzle.is_published ? 'Published' : 'Draft'}
@@ -96,7 +96,7 @@ export default async function AdminPage() {
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/admin/puzzles/${puzzle.id}/edit`}
-                        className="text-xs text-amber-600 hover:text-amber-800 font-medium"
+                        className="text-xs text-accent hover:text-accent-soft-ink font-medium"
                       >
                         Edit
                       </Link>
