@@ -15,7 +15,7 @@ export default function StepIndicator({ current }: { current: number }) {
                 isActive
                   ? 'bg-accent text-accent-ink'
                   : isDone
-                  ? 'bg-accent-soft text-accent'
+                  ? 'bg-accent-soft text-accent-soft-ink'
                   : 'bg-sunken text-ink-soft'
               }`}
             >

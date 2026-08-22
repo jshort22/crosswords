@@ -16,6 +16,26 @@ export interface Clue {
   cells: [number, number][]  // [row, col] sequence
 }
 
+/**
+ * A reference to one answer. The direction is part of the identity — 17 Across
+ * and 17 Down are different answers that share a number, so a bare number
+ * cannot identify a theme entry.
+ */
+export interface ClueRef {
+  number: number
+  direction: Direction
+}
+
+/**
+ * The puzzle's theme set: one marquee (the revealer) and the answers that pay
+ * it off. Selecting the marquee lights every themer; selecting a themer lights
+ * the marquee only, not its siblings — the marquee is the hub.
+ */
+export interface ThemeSet {
+  marquee: ClueRef | null
+  themers: ClueRef[]
+}
+
 export interface CrosswordPuzzle {
   id: string
   title: string
@@ -26,6 +46,7 @@ export interface CrosswordPuzzle {
   grid: Grid
   cluesAcross: Clue[]
   cluesDown: Clue[]
+  themeSet: ThemeSet
   sourceFileUrl: string | null
   isPublished: boolean
   createdAt: string

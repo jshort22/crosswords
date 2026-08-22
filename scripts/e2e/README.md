@@ -96,6 +96,7 @@ Three tests "failed" against correct code before that was in place.
 | `cluebar-toggle.mjs [id]` | The mobile clue bar's centre tap switches direction instead of opening the clue list: the chip flips A<->D, the cursor does not move, typing then runs the new way, and the clue list is still reachable from the ... menu and still jumps the cursor when you pick from it |
 | `a11y.mjs` | axe-core against WCAG 2.2 A/AA across 11 states — both themes, both viewports, and the overlay states (... menu, clue sheet, completion modal) that a page-load scan never sees. Should print zero violations |
 | `target-size.mjs [id]` | WCAG 2.2 SC 2.5.8: every interactive target measured against the 24x24px minimum, plus the grid cell size reported separately (it relies on the *essential* exception) |
+| `theme-links.mjs [id]` | Theme links end to end: the marquee lights every theme answer, a theme answer lights the marquee and **not** its siblings, an unrelated answer lights nothing, no cell is both linked and in-word, and an empty theme set links nothing. **Self-seeding** — writes a theme set over the REST API and restores the original afterwards, so it needs `set -a && source .env.local && set +a` and the `theme_set` column |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

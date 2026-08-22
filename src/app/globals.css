@@ -45,6 +45,12 @@
   --cell-line: #ddd6ca;
   --cell-num: #8d8677;
   --cell-word: #d9ece6;       /* rest of the active word */
+  /* Theme links. Yellow, the way the NYT marks cross-referenced entries — and
+     deliberately a different LIGHTNESS from --cell-word, not just a different
+     hue: mint and yellow at equal luminance are near-indistinguishable with
+     red-green colour blindness. This is 1.42:1 against the plain cell and
+     1.16:1 against the active word, and holds 12:1 for the letters on it. */
+  --cell-linked: #e8d98e;
   --cell-active: #14776a;     /* the cursor */
   --cell-active-ink: #ffffff;
 
@@ -91,6 +97,7 @@
   --cell-line: #17140f;
   --cell-num: #8e8578;
   --cell-word: #24413b;
+  --cell-linked: #544824;     /* 1.68:1 vs the cell, 1.23:1 vs the active word */
   --cell-active: #43c3ab;
   --cell-active-ink: #10221e;
 
@@ -133,6 +140,7 @@
   --color-cell-line: var(--cell-line);
   --color-cell-num: var(--cell-num);
   --color-cell-word: var(--cell-word);
+  --color-cell-linked: var(--cell-linked);
   --color-cell-active: var(--cell-active);
   --color-cell-active-ink: var(--cell-active-ink);
 

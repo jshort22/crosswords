@@ -1196,3 +1196,97 @@ Unrelated, found on the way: **iCloud had littered `.next/` with 22 duplicate
 files** (`cache-life.d 2.ts` and friends), which broke `next build` with a
 TS6200 identifier conflict. `.next` is gitignored, so they were local only.
 Worth knowing this repo lives in iCloud Drive and will do it again.
+
+---
+
+## Session 20 — Theme Links (Marquee + Theme Answers)
+
+NYT-style cross-reference highlighting. A puzzle names one **marquee** (the
+revealer) and any number of **theme answers**; selecting one highlights the
+others in yellow.
+
+### The relationship is asymmetric, on purpose
+Selecting the marquee lights **every** themer. Selecting a themer lights **only
+the marquee** — not its siblings. Lighting the whole set from any member would
+tell you how many theme answers the puzzle has the first time you touched one of
+them, which is part of what you are meant to discover.
+
+### Data model
+New `theme_set` jsonb column: `{"marquee":"45A","themers":["17A","23A"]}`.
+Refs carry their direction because 17A and 17D are different answers that share
+a number — a bare number cannot identify a theme entry.
+
+`deserializeThemeSet` is deliberately tolerant. Every puzzle created before this
+holds `{}`, a row hand-edited in the Supabase table editor can hold anything,
+and this runs during the solver's **first render** — so it must read as "no
+theme" rather than throw. A themer list with no marquee is dropped entirely: no
+hub, no theme set.
+
+### Colour: a different lightness, not just a different hue
+`--cell-linked` is #e8d98e light / #544824 dark. The obvious yellows all sat at
+the *same luminance* as `--cell-word`'s mint (1.02–1.07:1), which means hue was
+the only thing separating them — exactly what fails for red-green colour
+blindness. Checked against a deuteranopia simulation and moved to a yellow that
+also differs in lightness (1.42:1 vs the plain cell, 1.16:1 vs the active word,
+12:1 for the letters on it).
+
+Grid precedence is cursor > active word > linked > plain. A linked cell inside
+the answer you are in reads as the active word — where you are beats what it
+points at.
+
+### Admin: marquee is a radio
+Two checkbox columns were the request; the marquee is a **radio** instead, with
+its `name` shared across the Across and Down sections. There is exactly one
+marquee per puzzle, so a radio makes two of them impossible by construction
+rather than something to validate and show an error for. Themer stays a
+checkbox. The roles are mutually exclusive.
+
+Column labels sit in one header row rather than on all 140 clue rows, which
+drowned the clues, and `ClueEditor` opens with a summary of the set — checked
+boxes among 140 rows cannot be found by scrolling. Warnings are advisory only,
+matching the clue-length posture: a half-built theme says so, it never blocks a
+save.
+
+### Migration sequencing — READ THIS
+`supabase/schema.sql` carries `alter table puzzles add column if not exists
+theme_set jsonb not null default '{}'`. It is additive and safe on a live table.
+
+- **Reads are safe before it runs** — every query is `select('*')`, and a missing
+  field deserializes to "no theme". Verified: with the column absent, the library
+  and solver both still return 200.
+- **Admin writes are NOT** — insert/update send `theme_set` and will fail with
+  `column puzzles.theme_set does not exist`.
+
+So the migration has to run **before this merges**, because `main` auto-deploys
+to production.
+
+### Also fixed, found by extending the a11y scan to the admin pages
+The scan now covers the admin edit page and the new-puzzle wizard, because that
+is where the new form controls live. Two pre-existing failures turned up there:
+the answer chip used `text-accent` on `bg-accent-soft` (**4.4:1**, just under
+1.4.3) across 81 rows — now `text-accent-soft-ink`, the token that exists for
+precisely that job, at 6.58:1 — and the edit page's Title input had a `<label>`
+that was never associated with it (critical, 4.1.2). The new radio and checkbox
+controls passed on their own aria-labels.
+
+### Verification
+Logic covered by a pure test of the theme functions — parsing, round-trip, eight
+shapes of malformed input, the asymmetry from both ends, and refs pointing at
+answers the grid no longer has. Rendering confirmed by screenshot in both themes
+from both ends of the relationship.
+
+**A stale-CSS trap worth recording:** the first screenshots showed the linked
+cells in beige, not yellow. The token was correct; the dev server was serving
+CSS from before it existed, and `bg-cell-linked` was resolving to transparent,
+letting `--cell-line` show through. Deleting files under `.next` while the server
+runs (which the iCloud duplicate cleanup does) is enough to cause it. Restarting
+the server fixed it. **Probe the computed style, don't trust the screenshot** —
+`getComputedStyle` said `--cell-linked` was empty, which is what identified it.
+
+`a11y.mjs`: zero violations across 13 states. Suite green: `backspace` (18),
+`cluebar-toggle` (13), `skipfilled`, `arrow-skip`, `solve`, `mobile-solve`,
+`revisit`, `banner`, `staleprogress`, `freshstart`, `timer-toggle`,
+`difficulty`, `title-shift`, `stability` (15x15 and 21x21), `target-size`.
+`tsc` and `next build` clean.
+
+`theme-links.mjs` is written and **not yet run** — it needs the column.

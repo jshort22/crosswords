@@ -105,7 +105,7 @@ export default function GridEditor({ grid, onChange }: Props) {
           onClick={() => setSymmetry(s => !s)}
           className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
             symmetry
-              ? 'border-accent bg-accent-soft text-accent'
+              ? 'border-accent bg-accent-soft text-accent-soft-ink'
               : 'border-line text-ink-soft hover:bg-sunken'
           }`}
         >

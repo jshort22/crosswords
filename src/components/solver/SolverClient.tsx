@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { CrosswordPuzzle, Clue, SolverState, Direction } from '@/lib/crossword/types'
 import { useCrosswordSolver } from '@/hooks/useCrosswordSolver'
-import { getActiveClue, firstUnfilledCell, formatTime, prevCellForBackspace } from '@/lib/crossword/utils'
+import { getActiveClue, firstUnfilledCell, formatTime, prevCellForBackspace, linkedCellSet } from '@/lib/crossword/utils'
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
@@ -284,6 +284,17 @@ export default function SolverClient({ puzzle }: Props) {
 
   const activeClue = state.direction === 'across' ? activeAcrossClue : activeDownClue
 
+  // Theme links. Recomputed only when the answer you are on changes, not on
+  // every keystroke — the set depends on which answer is active, nothing else.
+  const linkedCells = useMemo(
+    () =>
+      linkedCellSet(
+        puzzle,
+        activeClue ? { number: activeClue.number, direction: state.direction } : null
+      ),
+    [puzzle, activeClue, state.direction]
+  )
+
   // The clue bar's arrows walk ONE continuous Across-then-Down sequence, the way
   // NYT does, flipping direction at the boundary. That is deliberately not
   // nextWord/prevWord: those are direction-scoped and wrap within a single list,
@@ -452,6 +463,7 @@ export default function SolverClient({ puzzle }: Props) {
               puzzle={puzzle}
               state={state}
               wordCellSet={wordCellSet}
+              linkedCellSet={linkedCells}
               onCellClick={handleCellClick}
               onKeyDown={handleKeyDown}
               celebrationPhase={celebrationPhase}

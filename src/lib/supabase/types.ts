@@ -15,6 +15,7 @@ export interface Database {
           clues_across: Json
           clues_down: Json
           solution: Json
+          theme_set: Json
           source_file_url: string | null
           is_published: boolean
           created_at: string
@@ -31,6 +32,7 @@ export interface Database {
           clues_across: Json
           clues_down: Json
           solution: Json
+          theme_set?: Json
           source_file_url?: string | null
           is_published?: boolean
           created_at?: string
@@ -47,6 +49,7 @@ export interface Database {
           clues_across?: Json
           clues_down?: Json
           solution?: Json
+          theme_set?: Json
           source_file_url?: string | null
           is_published?: boolean
           created_at?: string
