@@ -2,30 +2,143 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Daylight — the app's one palette, in two modes.
+
+   Every colour in the UI comes from a token here, so a component never names a
+   palette shade directly and never needs a `dark:` variant for colour. The
+   tokens flip under `.dark`; the markup does not change.
+
+   Dark mode is deliberately WARM (brown-black, not blue-black). That
+   temperature is the design's signature — a cool dark would be a different
+   design wearing the same layout.
+   ───────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #b8c8e0;
-  --foreground: #171717;
+  --canvas: #f7f4ef;          /* page ground */
+  --surface: #ffffff;         /* cards, header, panels */
+  --sunken: #f4f1ea;          /* recessed: thumbnails, keyboard bed, clue bar */
+  --ink: #1e1b17;
+  --ink-soft: #7a7367;
+  --line: #e7e1d9;
+
+  --accent: #14776a;
+  --accent-ink: #ffffff;      /* text ON accent */
+  --accent-soft: #d9ece6;
+  --accent-soft-ink: #0f5a50; /* text ON accent-soft */
+
+  /* The grid is its own small system — it needs to stay legible when every
+     other surface changes, so it gets its own tokens rather than reusing them. */
+  --cell: #ffffff;
+  --cell-black: #29251f;
+  --cell-line: #ddd6ca;
+  --cell-num: #8d8677;
+  --cell-word: #d9ece6;       /* rest of the active word */
+  --cell-active: #14776a;     /* the cursor */
+  --cell-active-ink: #ffffff;
+
+  --gold: #d99b2b;            /* celebration only */
+  --gold-sweep: rgba(217, 155, 43, 0.5);
+  --danger: #a8321f;
+  --danger-soft: #fbe7e2;
+
+  --diff-1: #2c6b34; --diff-1-soft: #e6f2e4;
+  --diff-2: #4d6b1f; --diff-2-soft: #ebf1de;
+  --diff-3: #8a5a11; --diff-3-soft: #faeed8;
+  --diff-4: #96491a; --diff-4-soft: #fbe8dc;
+  --diff-5: #97331f; --diff-5-soft: #fbe3de;
+
+  --shadow-raise: 0 1px 2px rgba(30, 27, 23, 0.05), 0 12px 32px -16px rgba(30, 27, 23, 0.14);
+  --shadow-float: 0 2px 4px rgba(30, 27, 23, 0.05), 0 20px 50px -20px rgba(30, 27, 23, 0.20);
+  --shadow-key: 0 1px 2px rgba(30, 27, 23, 0.10);
 }
 
 .dark {
-  --background: #111827;
-  --foreground: #f9fafb;
+  --canvas: #17140f;
+  --surface: #221e19;
+  --sunken: #1b1813;
+  --ink: #f3eee6;
+  --ink-soft: #9b9184;
+  --line: #322d26;
+
+  --accent: #43c3ab;
+  --accent-ink: #10221e;
+  --accent-soft: #24413b;
+  --accent-soft-ink: #9fe3d3;
+
+  --cell: #2a251f;
+  --cell-black: #100e0b;
+  --cell-line: #17140f;
+  --cell-num: #8e8578;
+  --cell-word: #24413b;
+  --cell-active: #43c3ab;
+  --cell-active-ink: #10221e;
+
+  --gold: #e8bc72;
+  --gold-sweep: rgba(232, 188, 114, 0.42);
+  --danger: #f0a094;
+  --danger-soft: #3a201b;
+
+  --diff-1: #86dc9f; --diff-1-soft: #1e3324;
+  --diff-2: #b9d98a; --diff-2-soft: #26301c;
+  --diff-3: #e9bd72; --diff-3-soft: #33281a;
+  --diff-4: #eda87b; --diff-4-soft: #34241a;
+  --diff-5: #ef9a8c; --diff-5-soft: #35201c;
+
+  /* Shadows do almost nothing on a dark ground — surface lift carries the
+     hierarchy instead, so these only deepen rather than define. */
+  --shadow-raise: 0 18px 40px -22px rgba(0, 0, 0, 0.85);
+  --shadow-float: 0 26px 60px -26px rgba(0, 0, 0, 0.95);
+  --shadow-key: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-playfair);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-ink: var(--accent-soft-ink);
+
+  --color-cell: var(--cell);
+  --color-cell-black: var(--cell-black);
+  --color-cell-line: var(--cell-line);
+  --color-cell-num: var(--cell-num);
+  --color-cell-word: var(--cell-word);
+  --color-cell-active: var(--cell-active);
+  --color-cell-active-ink: var(--cell-active-ink);
+
+  --color-gold: var(--gold);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-diff-1: var(--diff-1); --color-diff-1-soft: var(--diff-1-soft);
+  --color-diff-2: var(--diff-2); --color-diff-2-soft: var(--diff-2-soft);
+  --color-diff-3: var(--diff-3); --color-diff-3-soft: var(--diff-3-soft);
+  --color-diff-4: var(--diff-4); --color-diff-4-soft: var(--diff-4-soft);
+  --color-diff-5: var(--diff-5); --color-diff-5-soft: var(--diff-5-soft);
+
+  --shadow-raise: var(--shadow-raise);
+  --shadow-float: var(--shadow-float);
+  --shadow-key: var(--shadow-key);
+
+  /* Bricolage Grotesque carries the character; DM Sans does the reading. */
+  --font-display: var(--font-bricolage), system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+
   --animate-sweep: sweep 2.2s ease-in forwards;
   --animate-pop-in: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
 }
 
 /* Gold sweep celebration animation */

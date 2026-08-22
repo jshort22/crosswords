@@ -223,12 +223,17 @@ export function difficultyLabel(d: number): string {
   return ['', 'Beginner', 'Easy', 'Medium', 'Hard', 'Expert'][d] ?? 'Unknown'
 }
 
+/**
+ * One class pair per difficulty, from the theme tokens — so these follow the
+ * palette in both modes with no `dark:` variants. The ramp runs green → red
+ * across Beginner → Expert.
+ */
 export const difficultyColors: Record<number, string> = {
-  1: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-  2: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-400',
-  3: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
-  4: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
-  5: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+  1: 'bg-diff-1-soft text-diff-1',
+  2: 'bg-diff-2-soft text-diff-2',
+  3: 'bg-diff-3-soft text-diff-3',
+  4: 'bg-diff-4-soft text-diff-4',
+  5: 'bg-diff-5-soft text-diff-5',
 }
 
 export function formatTime(seconds: number): string {
