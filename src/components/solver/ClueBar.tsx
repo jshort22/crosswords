@@ -7,13 +7,19 @@ interface Props {
   direction: Direction
   onPrev: () => void
   onNext: () => void
-  onOpenList: () => void
+  onToggleDirection: () => void
 }
 
 // The mobile equivalent of the desktop clue panels: one line above the keyboard
-// showing the active clue, with arrows to step through entries and a tap target
-// to open the full list.
-export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }: Props) {
+// showing the active clue, with arrows to step through entries.
+//
+// Tapping the clue itself SWITCHES DIRECTION (across <-> down), the way the NYT
+// app behaves — it is the same gesture as tapping the cell you are already on,
+// but with a target the width of the bar instead of one 17px cell, which is the
+// point of it on a phone. It used to open the full clue list; that moved to the
+// header's ... menu, because switching direction is something you do constantly
+// while solving and browsing the whole list is not.
+export default function ClueBar({ clue, direction, onPrev, onNext, onToggleDirection }: Props) {
   const arrowClass =
     'shrink-0 w-11 min-h-11 flex items-center justify-center text-2xl leading-none ' +
     'text-ink-soft active:bg-sunken transition-colors'
@@ -38,7 +44,9 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
       <button
         type="button"
         tabIndex={-1}
-        onClick={onOpenList}
+        onClick={onToggleDirection}
+        data-clue-bar-toggle=""
+        aria-label={`Switch to ${direction === 'across' ? 'down' : 'across'}`}
         className="flex-1 min-w-0 px-1 py-2 text-left flex items-center active:bg-accent-soft transition-colors"
       >
         {clue ? (

@@ -1039,3 +1039,48 @@ once localStorage says so, which makes it the easiest thing on the page to break
 without noticing, and nothing was selecting it at all.
 
 `--gold`'s comment in `globals.css` said "celebration only". It no longer is.
+
+---
+
+## Session 18 — The Mobile Clue Bar Switches Direction
+
+Tapping the clue bar opened the full clue list. It now flips across <-> down,
+the way the NYT app behaves.
+
+Mechanically this is the gesture that already existed on the grid — `SET_ACTIVE`
+toggles direction when you tap the cell you are already on — given a target the
+width of the screen instead of one ~17px cell. That is the whole value of it on
+a phone. `toggleDirection` was already on the hook and unused from mobile. The
+cursor deliberately does not move.
+
+### The part that needed thought: the clue list had no other door
+`onOpenList` on the clue bar was the **only** entry point to the clue sheet on
+mobile. The ... menu had Show timer, Reset and Show incorrect, and nothing else
+opened it. Straight-swapping the tap would have made the full clue list
+unreachable on a phone — and the list is not decorative: it is the documented
+way back to an answer that is filled in but wrong, because Tab and the clue-bar
+arrows both skip completed answers by design.
+
+So it moved into the ... menu, as **Clue list**.
+
+### Why the menu and not a third button in the bar
+The bar is a fixed 76px sized for exactly three lines of clue, and the
+three-line fit was measured across all 298 clues in the library. A third 44px
+target would have cut the clue's width from ~302px to ~258px at 390px wide and
+pushed more clues into overflow — re-opening a question Session 11 had already
+settled with measurement. The menu costs the bar nothing. Confirmed after the
+change: bar still 76px, grid still 342px, 0 clues needing internal scroll.
+
+### It broke an existing harness, which is the point of having them
+`mobile-solve.mjs` tapped the clue bar to open the sheet. With the new
+behaviour that tap just flips direction, so the whole clue-sheet section would
+have gone on "passing" while testing nothing. Updated to open it from the menu.
+
+### Verification
+New `scripts/e2e/cluebar-toggle.mjs` — 13 assertions: the chip flips A<->D, the
+cursor holds still, the sheet does *not* open, typing afterwards runs down
+instead of across, the menu's Clue list opens the sheet and closes the menu, and
+picking a clue from the sheet still moves the cursor. Suite re-run green:
+`mobile-solve`, `stability` (76px / 342px), `cluebar` (300 clues, 0 scrolling),
+`skipfilled` (10 + mobile), `arrow-skip` (0/16). `tsc --noEmit` and `next build`
+clean. Menu screenshotted in both modes.

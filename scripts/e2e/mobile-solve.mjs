@@ -41,7 +41,11 @@ for (let i = 0; i < 5; i++) await page.locator('button[aria-label="Previous clue
 console.log(`  after 5 prev: ${await barText()}`)
 
 console.log('--- clue sheet ---')
-await page.locator('div.touch-target.shrink-0 button.flex-1').first().tap()
+// Opened from the ... menu. Tapping the clue bar used to open it; that gesture
+// now switches direction (see cluebar-toggle.mjs), so this must go via the menu
+// or it silently tests nothing.
+await page.locator('[aria-expanded]').first().tap()
+await page.locator('[data-clue-list-open]').tap()
 await page.waitForTimeout(300)
 const sheetOpen = await page.locator('div[aria-label="All clues"]').isVisible()
 const rowH = await page.evaluate(() => {

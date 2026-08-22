@@ -93,6 +93,7 @@ Three tests "failed" against correct code before that was in place.
 | `timer-toggle.mjs` | The ⋯ menu's Show timer switch: hides the clock face, keeps the menu open, and — the point — the clock still accrues while hidden |
 | `difficulty.mjs` | Difficulty appears on the library and nowhere in the solver, on both viewports |
 | `backspace.mjs [id]` | Backspace across word boundaries: clearing within a word (unchanged), crossing from a word's first cell into the previous clue's last cell in both directions, and — the point — that holding the key empties everything you typed instead of sticking at the first black square |
+| `cluebar-toggle.mjs [id]` | The mobile clue bar's centre tap switches direction instead of opening the clue list: the chip flips A<->D, the cursor does not move, typing then runs the new way, and the clue list is still reachable from the ... menu and still jumps the cursor when you pick from it |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

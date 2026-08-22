@@ -11,6 +11,9 @@ interface Props {
    *  its own in the header, where there is room for it. */
   timerVisible?: boolean
   onToggleTimer?: () => void
+  /** Opens the full clue sheet. Menu variant only — the desktop has both clue
+   *  panels on screen permanently and has nothing to open. */
+  onOpenClueList?: () => void
 }
 
 // Reset + Show Incorrect, shared by the desktop sidebar and the mobile menu.
@@ -18,7 +21,7 @@ interface Props {
 // (reset, setElapsed, celebrationPhase, restoredAsSolvedRef, localStorage) is
 // what the completion-flow fix in 4b1c6e3 got right, and it depends on state
 // that lives there. This component only owns its own confirmation UI.
-export default function SolverActions({ onReset, onShowIncorrect, variant, timerVisible, onToggleTimer }: Props) {
+export default function SolverActions({ onReset, onShowIncorrect, variant, timerVisible, onToggleTimer, onOpenClueList }: Props) {
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmCheck, setConfirmCheck] = useState(false)
 
@@ -64,6 +67,16 @@ export default function SolverActions({ onReset, onShowIncorrect, variant, timer
               }`}
             />
           </span>
+        </button>
+      )}
+
+      {isMenu && onOpenClueList && (
+        // The only way into the full clue list now that the clue bar toggles
+        // direction instead of opening it. It stays reachable because the list
+        // is how you get back to an answer that is filled in but wrong — Tab
+        // and the clue-bar arrows both skip completed answers by design.
+        <button type="button" data-clue-list-open="" onClick={onOpenClueList} className={buttonClass}>
+          Clue list
         </button>
       )}
 

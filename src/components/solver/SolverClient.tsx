@@ -75,7 +75,7 @@ function loadProgress(
 }
 
 export default function SolverClient({ puzzle }: Props) {
-  const { state, wordCells, wordCellSet, setLetter, clearLetter, setActive, setDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
+  const { state, wordCells, wordCellSet, setLetter, clearLetter, setActive, setDirection, toggleDirection, move, advance, retreat, nextWord, prevWord, restore, reset, showIncorrect, restoreSolved } =
     useCrosswordSolver(puzzle)
 
   const [showModal, setShowModal] = useState(false)
@@ -419,6 +419,7 @@ export default function SolverClient({ puzzle }: Props) {
               onToggleTimer={() => setTimerVisible(v => !v)}
               onReset={() => { handleReset(); setMenuOpen(false) }}
               onShowIncorrect={() => { showIncorrect(); setMenuOpen(false) }}
+              onOpenClueList={() => { setSheetOpen(true); setMenuOpen(false) }}
             />
           </div>
         </div>
@@ -506,7 +507,7 @@ export default function SolverClient({ puzzle }: Props) {
             direction={state.direction}
             onPrev={() => goClue(-1)}
             onNext={() => goClue(1)}
-            onOpenList={() => setSheetOpen(true)}
+            onToggleDirection={toggleDirection}
           />
           <OnScreenKeyboard
             onLetter={inputLetter}
