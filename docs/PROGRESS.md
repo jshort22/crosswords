@@ -1084,3 +1084,24 @@ picking a clue from the sheet still moves the cursor. Suite re-run green:
 `mobile-solve`, `stability` (76px / 342px), `cluebar` (300 clues, 0 scrolling),
 `skipfilled` (10 + mobile), `arrow-skip` (0/16). `tsc --noEmit` and `next build`
 clean. Menu screenshotted in both modes.
+
+### Session 18b — Two problems found by auditing the three changes
+Neither was reported; both came from going back and checking the work.
+
+**The clue bar stopped announcing the clue.** The direction toggle got
+`aria-label="Switch to down"`. On a `<button>`, `aria-label` *replaces* the
+element's content as its accessible name — so a screen reader read out "Switch
+to down" and nothing else, and on a phone that bar is the only place the clue is
+rendered. VoiceOver users could no longer read the clue at all. The label now
+runs clue first, action last: `1 Across: Street performer... Tap to switch to
+down.` The visible text is untouched. Verified by reading the computed
+accessible name, not by eyeballing the markup.
+
+**Backspace wrapped from the first word to the last.** Held at the top of the
+grid, the cursor jumped to the bottom-right and began deleting answers there —
+measured: starting at 1-Down, twelve presses ended on cell 218 of 225. That
+directly contradicts the rule used to justify not skipping in the first place:
+wrapping is fine for a cursor move and wrong for a destructive one. It now stops
+at the first clue in a direction, which is a real terminus, not stuckness.
+`backspace.mjs` grew to 18 assertions, covering the no-wrap stop and that the
+highlighted word follows the cursor across a boundary.

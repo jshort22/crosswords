@@ -135,7 +135,35 @@ const dtail = D0[D0.length - 1]
 await atCell('down: crosses into the previous down word', dtail)
 ok('down: and deletes there', (await letterAt(...dtail)) === '', `cell [${dtail}]`)
 
-console.log('\n--- E. nothing was written into a black square ---')
+console.log('\n--- E. it stops at the FIRST word, it does not wrap to the end ---')
+// Wrapping is fine for a cursor move and wrong for a destructive one: held at
+// the top of the grid it teleported to the bottom-right and ate answers there.
+await fresh()
+const first = ACROSS[0]
+await go(first[0])
+const farEnd = ACROSS[ACROSS.length - 1]
+await go(farEnd[0]); await press('A', farEnd.length)   // letters at the far end
+await go(first[0])                                     // sit on 1-Across, cell 1, empty
+await press('Backspace', 6)
+await atCell('cursor holds at the first cell of the first word', first[0])
+ok('the last word was NOT eaten', (await letterAt(...farEnd[farEnd.length - 1])) !== '',
+   `far-end cell [${farEnd[farEnd.length-1]}] still filled`)
+
+console.log('\n--- F. the clue readout follows across a boundary ---')
+await fresh()
+await go(W1[0]); await press('A', W1.length)
+await go(W1[0])
+const clueBefore = await page.locator('[data-active-clue], aside').first().textContent().catch(()=>null)
+await press('Backspace', 2)                            // crosses into the previous word
+const cur = await active()
+const inPrevWord = W0.some(([r, c]) => idx(r, c) === cur)
+ok('cursor is inside the previous word', inPrevWord, `cursor ${fmt(cur)}`)
+const highlighted = await page.evaluate(s =>
+  [...document.querySelectorAll(s)].filter(d => d.hasAttribute('data-in-word')).length, SEL)
+ok('the highlighted word moved with it', highlighted === W0.length,
+   `${highlighted} cells highlighted, previous word is ${W0.length} long`)
+
+console.log('\n--- G. nothing was written into a black square ---')
 const blacks = (await letters()).filter((t, i) => t && grid[Math.floor(i / cols)][i % cols].t !== 'w')
 ok('no letters in black cells', blacks.length === 0, `${blacks.length} found`)
 ok('no console/page errors', errs.length === 0, errs.slice(0, 3).join(' | '))

@@ -229,7 +229,13 @@ export function prevCellInWord(
  * this case; this is its mirror.
  *
  * At a word's first cell we step to the LAST cell of the previous clue in the
- * same direction, wrapping at the first clue the way ADVANCE wraps at the last.
+ * same direction. It deliberately does **not wrap**: at the first clue in a
+ * direction the cursor stops, because there is genuinely nothing before it. An
+ * earlier revision wrapped the way ADVANCE does, which meant holding Backspace
+ * at the top of the grid teleported you to the bottom-right and quietly began
+ * eating the answers there — the same objection that rules out skipping, below.
+ * Wrapping is fine for a cursor move; it is not fine for a destructive one.
+ *
  * Unlike Tab, this does **not** skip over words that have nothing to delete:
  * backspace is destructive, so it walks the grid one cell at a time rather than
  * teleporting the cursor into a distant answer and erasing it. Held down, the
@@ -252,7 +258,8 @@ export function prevCellForBackspace(
   const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === row && c2 === col))
   if (idx === -1) return [row, col]
 
-  const prevClue = clues[(idx - 1 + clues.length) % clues.length]
+  if (idx === 0) return [row, col]
+  const prevClue = clues[idx - 1]
   return prevClue.cells[prevClue.cells.length - 1] ?? [row, col]
 }
 

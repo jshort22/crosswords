@@ -46,7 +46,16 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onToggleDirec
         tabIndex={-1}
         onClick={onToggleDirection}
         data-clue-bar-toggle=""
-        aria-label={`Switch to ${direction === 'across' ? 'down' : 'across'}`}
+        /* The label must still CARRY THE CLUE. A bare "Switch to down" here
+           replaced the button's content as its accessible name, and on a phone
+           this bar is how the clue is read at all — so VoiceOver users lost the
+           clue text entirely. Name it clue-first, action last. */
+        aria-label={
+          clue
+            ? `${clue.number} ${direction === 'across' ? 'Across' : 'Down'}: ${clue.clue || 'No clue'}. ` +
+              `Tap to switch to ${direction === 'across' ? 'down' : 'across'}.`
+            : 'Select a cell'
+        }
         className="flex-1 min-w-0 px-1 py-2 text-left flex items-center active:bg-accent-soft transition-colors"
       >
         {clue ? (
