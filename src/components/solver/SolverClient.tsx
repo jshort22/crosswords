@@ -296,7 +296,18 @@ export default function SolverClient({ puzzle }: Props) {
       ]
       const i = seq.findIndex(e => e.dir === state.direction && e.clue.number === activeClue?.number)
       if (i === -1) return
-      const next = seq[(i + delta + seq.length) % seq.length]
+      // Skip answers that are already complete, matching Tab/NEXT_WORD. Falls
+      // back to the immediate neighbour when nothing is left to fill, so the
+      // arrows still move on a finished grid.
+      const at = (k: number) => seq[((k % seq.length) + seq.length) % seq.length]
+      let next = at(i + delta)
+      for (let k = 1; k <= seq.length; k++) {
+        const candidate = at(i + delta * k)
+        if (candidate.clue.cells.some(([r, c]) => !state.cells[r]?.[c]?.userLetter)) {
+          next = candidate
+          break
+        }
+      }
       // setActive BEFORE setDirection: SET_ACTIVE toggles direction when the
       // target cell equals the current one, which is reachable at the
       // Across/Down boundary. Setting direction after makes it deterministic.

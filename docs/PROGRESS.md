@@ -805,3 +805,57 @@ Full suite green after migration: `freshstart`, `solve` plain + check, `revisit`
 errors anywhere. `tsc --noEmit` and `next build` clean. Screenshots taken of
 library, solver, phone and admin in **both** modes — that is how the two grid
 problems above surfaced.
+
+---
+
+## Session 15 — The Arrows Now Skip Completed Answers
+
+Reported as lost functionality after the redesign: "when a word is already
+filled in, before it used to skip over it and now it's stopping on the first
+letter."
+
+**Nothing broke.** The reducer is byte-identical across the redesign
+(`git diff d388811..HEAD -- src/hooks/useCrosswordSolver.ts` is empty) and
+`SolverClient`'s diff is className-only. Auto-advance still skips correctly —
+a realistic solve seeded with the top six rows of Across left **14 Down answers
+complete from crossings, and auto-advance skipped every one**, never once
+landing on a filled cell.
+
+The culprit was the **arrows**, which never skipped — that was the explicit
+choice in Session 12, on the reasoning that they are how you get back to an
+answer that is filled in but wrong. Measuring it settled the argument:
+
+| | arrow presses landing on an already-complete answer |
+|---|---|
+| before | **13 of 16** |
+| after | **0 of 16** |
+
+Thirteen out of sixteen makes the arrows useless exactly when you most want
+them, so the Session 12 reasoning was wrong in practice. Tab / `NEXT_WORD` /
+`PREV_WORD` and the mobile clue-bar ‹ › now skip answers with no blanks left,
+landing on the first blank of the next one that has any.
+
+### What keeps a filled-but-wrong answer reachable
+- **Tapping its cell in the grid** — unchanged.
+- **The clue list** (desktop panel and mobile sheet) — deliberately still visits
+  every clue, filled or not.
+
+That is the line: fast navigation skips, deliberate navigation does not. It also
+means Show Incorrect is still followed by an obvious way to reach what it flags.
+
+### Endgame fallback
+Both paths fall back to the immediate neighbour when *nothing* is left to fill,
+so the arrows keep moving on a finished grid rather than freezing — otherwise a
+completed puzzle would be unreviewable. Covered by `skipfilled.mjs` case I.
+
+### Verification
+`skipfilled.mjs` is now 10 desktop assertions plus the mobile arrow, all green —
+case D inverted (Tab must now skip the full word) and case I is new (arrows still
+move on a full grid). The measurement harness is preserved as
+`scripts/e2e/arrow-skip.mjs`. Full suite re-run green: `solve` plain + check,
+`revisit`, `banner`, `mobile-solve`, `clock`, `freshstart`, `staleprogress` 5/5,
+`stability`. `tsc --noEmit` clean.
+
+**Process note:** this is the second time a navigation decision was settled by
+argument and then reversed by measurement. The 13/16 number took one short
+script and would have settled it in Session 12.

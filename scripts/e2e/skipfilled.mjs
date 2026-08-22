@@ -85,12 +85,11 @@ await expect('stayed in W', W[1])
 await press('Z')
 await expect('still stepping through W', W[2])
 
-console.log(`\n--- D. Tab still walks into a full word (arrows unchanged) ---`)
+console.log(`\n--- D. Tab SKIPS a full word ---`)
+// W1 is full from B/C; W2 still has blanks. Tab must jump over W1 entirely.
 await go(W[0])
 await press('Tab')
-await expect('Tab reached the full W1', W1[0])
-await press('Shift+Tab')
-await expect('Shift+Tab came back', W[0])
+await expect('Tab skipped the full W1 and landed in W2', W2[0])
 
 console.log(`\n--- E. a gap skipped past is still reachable, not orphaned ---`)
 await fresh()
@@ -122,6 +121,18 @@ console.log(`\n--- H. clicking a clue in the list lands on its first blank ---`)
 // filled first cell too.
 await page.locator('ol').first().locator('button').nth(k + 1).click()
 await expect('clue-list click skipped the filled first cell', W1[1])
+
+console.log(`\n--- I. arrows still move when EVERY answer is complete ---`)
+// Endgame: with nothing left to fill the arrows must not freeze, or a finished
+// grid becomes unreviewable.
+await fresh()
+for (const w of across) { await go(w[0]); await press('A', w.length) }
+await go(W[0])
+await press('Tab')
+const after = await active()
+const moved = after !== idx(...W[0])
+moved ? pass++ : fail++
+console.log(`  ${moved ? 'PASS' : 'FAIL'}  Tab still moves on a full grid: ${fmt(idx(...W[0]))} -> ${fmt(after)}`)
 
 console.log(`\n${pass} passed, ${fail} failed`)
 console.log(`CONSOLE_ERRORS=${JSON.stringify(errs)}`)

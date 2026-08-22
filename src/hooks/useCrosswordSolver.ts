@@ -159,16 +159,32 @@ function reducer(state: SolverState, action: Action, puzzle: CrosswordPuzzle): S
       const [nr, nc] = prevCellInWord(puzzle.grid, state.activeRow, state.activeCol, state.direction)
       return { ...state, activeRow: nr, activeCol: nc }
     }
-    // These two deliberately do NOT skip a filled answer — they are how you get
-    // back to one that is filled in but wrong. They do land on its first empty
-    // cell rather than its first cell.
+    // Tab / Shift+Tab. These SKIP answers that are already complete: walking
+    // every clue sounds harmless but measured out at 13 of 16 presses landing on
+    // a finished answer once the top of a grid was filled in, which makes the
+    // arrows useless exactly when you most want them.
+    //
+    // A filled-but-wrong answer therefore is not reachable this way — it stays
+    // reachable by tapping its cell in the grid, and by the clue list, which
+    // deliberately still visits every clue. Fast navigation skips; deliberate
+    // navigation does not.
     case 'NEXT_WORD':
     case 'PREV_WORD': {
       const clues = state.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
       const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol))
       if (idx === -1) return state
       const delta = action.type === 'NEXT_WORD' ? 1 : -1
-      const target = clues[(idx + delta + clues.length) % clues.length]
+      const at = (k: number) => clues[((k % clues.length) + clues.length) % clues.length]
+      // Default to the immediate neighbour, so that once EVERY answer in this
+      // direction is full the arrows still move and you can review the grid.
+      let target = at(idx + delta)
+      for (let i = 1; i <= clues.length; i++) {
+        const candidate = at(idx + delta * i)
+        if (candidate.cells.some(([r, c]) => !state.cells[r]?.[c]?.userLetter)) {
+          target = candidate
+          break
+        }
+      }
       const [r, c] = firstUnfilledCell(target, state.cells)
       return { ...state, activeRow: r, activeCol: c }
     }

@@ -88,6 +88,7 @@ Three tests "failed" against correct code before that was in place.
 | `freshstart.mjs <id...>` | First-visit state on every puzzle, desktop and mobile, in a **pristine** browser context (no storage ever touched — not `localStorage.clear()` after a load): grid must be completely empty, cursor on the first white cell, no modal, no console errors |
 | `staleprogress.mjs` | Seeds saved records that no longer match the grid (too small, too big, wrong shape, null) and checks the page still renders. A mismatched record used to throw on render *and* on every reload after it |
 | `clock.mjs [id]` | Timer across a session: ticks while in the puzzle, holds while you are out of it, resumes on return, survives a reload, stays monotonic across repeated exits |
+| `arrow-skip.mjs` | Seeds the top rows of a grid, then walks the clue-bar arrow 16 times and counts how many presses land on an answer that is already complete. This is the measurement that changed the arrows' behaviour: 13/16 before, 0/16 after |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script
