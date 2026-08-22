@@ -1487,3 +1487,10 @@ Verified: `wrong-modal` 15/15, `banner` updated and green, `skipfilled` 10/10
 after the opt-out, plus `hold-delete`, `backspace` (18), `cluebar-toggle` (13),
 `key-hits` (15), `solve`, `mobile-solve`, `revisit`, `staleprogress`,
 `freshstart`, `timer-toggle`, `difficulty`, `stability`, `theme-links` (15).
+
+### Session 21e — Dropped the alert icon from the wrong-answer modal
+The red exclamation-in-a-circle read as an error. A full grid with one wrong
+letter is a nudge — the heading and the "Keep trying" button carry it fine, and
+the completion modal's trophy is what should be the only badge in the solver.
+Nothing depended on the icon: `wrong-modal` 15/15, `banner`, `solve` and `a11y`
+all still green.

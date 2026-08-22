@@ -26,13 +26,9 @@ export default function WrongAnswerModal({ onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm"
     >
       <div className="bg-surface rounded-[26px] shadow-float p-8 mx-4 max-w-sm w-full text-center animate-pop-in">
-        <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-danger-soft flex items-center justify-center text-danger">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v4M12 16h.01" />
-          </svg>
-        </div>
-
+        {/* No icon. A red alert badge overstated it — a full grid with a wrong
+            letter is a nudge, not an error, and the completion modal's mark is
+            what earns a badge. The heading carries it. */}
         <h2 id="wrong-modal-title" className="font-display text-[26px] font-extrabold tracking-[-0.03em] text-ink mb-2">
           Not quite
         </h2>
