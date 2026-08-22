@@ -27,15 +27,15 @@ for (const [label, rec] of cases) {
   await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(900)
   const r = await page.evaluate(() => {
-    const grid = document.querySelector('.grid.select-none')
+    const grid = document.querySelector('[data-grid]')
     if (!grid) return { rendered: false }
     const cells = [...grid.children]
     return {
       rendered: true,
-      filledWhite: cells.filter(d => !d.className.includes('bg-black') &&
+      filledWhite: cells.filter(d => d.dataset.cell === 'white' &&
         [...d.querySelectorAll('span')].some(s => !s.className.includes('absolute') && s.textContent.trim())).length,
-      blackWithText: cells.filter(d => d.className.includes('bg-black') && d.textContent.trim()).length,
-      timer: document.querySelector('.font-mono.tabular-nums')?.textContent?.trim(),
+      blackWithText: cells.filter(d => d.dataset.cell === 'black' && d.textContent.trim()).length,
+      timer: document.querySelector('[data-timer]')?.textContent?.trim(),
     }
   })
   console.log(`${errs.length || !r.rendered ? 'PROBLEM' : 'ok     '}  ${label}`)

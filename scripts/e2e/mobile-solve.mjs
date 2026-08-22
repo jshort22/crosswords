@@ -13,7 +13,7 @@ const errs = []
 page.on('console', m => { if (/error/i.test(m.type())) errs.push(m.text()) })
 page.on('pageerror', e => errs.push(String(e)))
 
-const sel = '.grid.select-none > div'
+const sel = '[data-grid] > div'
 const go = async () => { await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' }); await page.waitForSelector(sel) }
 await go(); await page.evaluate(() => localStorage.clear()); await go()
 
@@ -32,7 +32,7 @@ const got = await page.locator(sel).nth(white[0].i).innerText()
 console.log(`  expected "${white[0].l}", cell shows "${got.replace(/[0-9]/g, '').trim()}"`)
 
 console.log('--- clue bar arrows walk across->down boundary ---')
-const lastAcross = await page.evaluate(() => document.querySelectorAll('.grid.select-none').length)
+const lastAcross = await page.evaluate(() => document.querySelectorAll('[data-grid]').length)
 const barText = async () => (await page.locator('div.touch-target.shrink-0 button.flex-1').first().innerText()).replace(/\s+/g, ' ').slice(0, 40)
 console.log(`  start: ${await barText()}`)
 for (let i = 0; i < 3; i++) await page.locator('button[aria-label="Next clue"]').tap()
@@ -56,8 +56,8 @@ console.log(`  sheet closes: ${!(await page.locator('div[aria-label="All clues"]
 console.log('--- solve the whole puzzle with the on-screen keyboard ---')
 for (const cell of white) { await tapCell(cell); await key(cell.l).tap() }
 await page.waitForTimeout(3600)
-console.log(`  gold cells: ${await page.locator('.bg-amber-400').count() > 0}`)
-console.log(`  modal: ${await page.locator('text=Puzzle Complete!').count() > 0}  trophy: ${await page.locator('text=🏆').count() > 0}`)
+console.log(`  gold cells: ${await page.locator('[data-celebrating]').count() > 0}`)
+console.log(`  modal: ${await page.locator('[data-complete-modal]').count() > 0}  trophy: ${await page.locator('[data-complete-mark]').count() > 0}`)
 console.log(`  solved key: ${await page.evaluate(id => localStorage.getItem('crossword-solved-' + id), ID)}`)
 console.log(`  progress key: ${await page.evaluate(id => localStorage.getItem('crossword-progress-' + id), ID)}`)
 

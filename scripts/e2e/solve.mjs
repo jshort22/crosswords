@@ -18,7 +18,7 @@ await page.goto(`http://localhost:3000/puzzles/${PUZZLE_ID}`, { waitUntil: 'netw
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-const cellsSel = '.grid.select-none > div'
+const cellsSel = '[data-grid] > div'
 await page.waitForSelector(cellsSel)
 
 const type = async (cell, letter) => {
@@ -33,24 +33,24 @@ if (MODE === 'check') {
   await page.getByRole('button', { name: 'Show Incorrect' }).click()
   await page.getByRole('button', { name: 'Yes' }).click()
   await page.waitForTimeout(300)
-  const reds = await page.locator('.text-red-600').count()
+  const reds = await page.locator('[data-wrong]').count()
   console.log(`RED_AFTER_CHECK=${reds}`)
 }
 
 for (const cell of white) await type(cell, cell.l)
 
 await page.waitForTimeout(400)
-const timerAtComplete = await page.locator('.font-mono.tabular-nums').first().innerText()
+const timerAtComplete = await page.locator('[data-timer]').first().innerText()
 const sweeping = await page.locator('.animate-sweep').count()
 console.log(`SWEEP_VISIBLE=${sweeping > 0}`)
 
 await page.waitForTimeout(3200)
-const gold = await page.locator('.grid.select-none.bg-amber-400').count()
-const modal = await page.locator('text=Puzzle Complete!').count()
-const trophy = await page.locator('text=🏆').count()
+const gold = await page.locator('[data-grid][data-celebrating]').count()
+const modal = await page.locator('[data-complete-modal]').count()
+const trophy = await page.locator('[data-complete-mark]').count()
 const solved = await page.evaluate(id => localStorage.getItem(`crossword-solved-${id}`), PUZZLE_ID)
 const progress = await page.evaluate(id => localStorage.getItem(`crossword-progress-${id}`), PUZZLE_ID)
-const redsAtEnd = await page.locator('.text-red-600').count()
+const redsAtEnd = await page.locator('[data-wrong]').count()
 
 console.log(`GOLD_CELLS=${gold}/${white.length}`)
 console.log(`MODAL=${modal > 0}  TROPHY=${trophy > 0}`)
@@ -58,9 +58,9 @@ console.log(`RED_AT_END=${redsAtEnd}`)
 console.log(`SOLVED_KEY=${solved}`)
 console.log(`PROGRESS_KEY=${progress}`)
 
-const t1 = await page.locator('.font-mono.tabular-nums').first().innerText()
+const t1 = await page.locator('[data-timer]').first().innerText()
 await page.waitForTimeout(2500)
-const t2 = await page.locator('.font-mono.tabular-nums').first().innerText()
+const t2 = await page.locator('[data-timer]').first().innerText()
 console.log(`TIMER_STOPPED=${t1 === t2} (${t1} -> ${t2}, at-complete ${timerAtComplete})`)
 
 // Can the solved grid still be typed into?
@@ -68,7 +68,7 @@ await page.getByRole('button', { name: 'Continue' }).click().catch(() => {})
 await page.locator(cellsSel).nth(white[0].i).click()
 await page.keyboard.press(white[0].l === 'Z' ? 'Y' : 'Z')
 await page.waitForTimeout(300)
-const goldAfterEdit = await page.locator('.grid.select-none.bg-amber-400').count()
+const goldAfterEdit = await page.locator('[data-grid][data-celebrating]').count()
 const letterAfterEdit = await page.locator(cellsSel).nth(white[0].i).innerText()
 const solvedAfterEdit = await page.evaluate(id => localStorage.getItem(`crossword-solved-${id}`), PUZZLE_ID)
 console.log(`POST_SOLVE_EDIT: letter_changed=${letterAfterEdit.replace(/\d/g,'').trim() !== white[0].l} still_gold=${goldAfterEdit > 0} solved_key_intact=${!!solvedAfterEdit}`)

@@ -6,7 +6,7 @@ const page = await ctx.newPage()
 await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
-await page.waitForSelector('.grid.select-none')
+await page.waitForSelector('[data-grid]')
 
 // Walk every clue, recording bar height + whether text is clipped
 const stats = await page.evaluate(async () => {
@@ -26,7 +26,7 @@ const stats = await page.evaluate(async () => {
     next.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await new Promise(r => setTimeout(r, 8))
   }
-  const g = document.querySelector('.grid.select-none').getBoundingClientRect()
+  const g = document.querySelector('[data-grid]').getBoundingClientRect()
   return { out, gridFits: g.bottom <= innerHeight + 1, grid: Math.round(g.width) }
 })
 const hs = stats.out.map(o => o.h)

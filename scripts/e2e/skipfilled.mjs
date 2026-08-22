@@ -38,7 +38,7 @@ const b = await chromium.launch()
 const page = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
 const errs = []
 page.on('console', m => m.type() === 'error' && errs.push(m.text()))
-const SEL = '.grid.select-none > div'
+const SEL = '[data-grid] > div'
 let pass = 0, fail = 0
 
 const fresh = async () => {
@@ -48,7 +48,7 @@ const fresh = async () => {
   await page.waitForSelector(SEL)
 }
 const active = () => page.evaluate(s =>
-  [...document.querySelectorAll(s)].findIndex(d => d.className.includes('bg-amber-300')), SEL)
+  [...document.querySelectorAll(s)].findIndex(d => d.hasAttribute('data-active')), SEL)
 const fmt = i => `[${Math.floor(i / cols)},${i % cols}]`
 const go = async ([r, c]) => {
   await page.locator(SEL).nth(idx(...scratch)).click()
@@ -136,7 +136,7 @@ await mpage.evaluate(() => localStorage.clear())
 await mpage.reload({ waitUntil: 'networkidle' })
 await mpage.waitForSelector(SEL)
 const mactive = () => mpage.evaluate(s =>
-  [...document.querySelectorAll(s)].findIndex(d => d.className.includes('bg-amber-300')), SEL)
+  [...document.querySelectorAll(s)].findIndex(d => d.hasAttribute('data-active')), SEL)
 // Fill the first cell of across word #1, then arrow into it from word #0
 await mpage.locator(SEL).nth(idx(...W1[0])).tap()
 await mpage.locator('div[aria-label="Letter keyboard"] button:text-is("A")').tap()

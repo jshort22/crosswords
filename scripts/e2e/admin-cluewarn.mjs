@@ -18,14 +18,14 @@ const inputs = page.locator('input[placeholder="Enter clue…"]')
 console.log(`clue inputs rendered: ${await inputs.count()}`)
 
 // Existing 132-char clue should already be flagged on load
-const tallyText = () => page.locator('span.text-amber-700').allTextContents()
+const tallyText = () => page.locator('[data-clue-tally]').allTextContents()
 console.log(`tallies on load: ${JSON.stringify(await tallyText())}`)
-console.log(`row warnings on load: ${await page.locator('p.text-amber-700').count()}`)
+console.log(`row warnings on load: ${await page.locator('[data-clue-warning]').count()}`)
 
 const first = inputs.first()
 // Scope the assertion to THIS row — other clues in the puzzle are already long
 const row = page.locator('input[placeholder="Enter clue…"]').first().locator('xpath=..')
-const rowWarn = async () => await row.locator('p.text-amber-700').count() > 0 ? 'yes' : 'no'
+const rowWarn = async () => await row.locator('[data-clue-warning]').count() > 0 ? 'yes' : 'no'
 console.log(`\n--- boundary: 99 / 100 / 101 chars in THIS row ---`)
 for (const n of [99, 100, 101]) {
   await first.fill('word '.repeat(40).slice(0, n))
@@ -38,10 +38,10 @@ console.log(`  (trailing whitespace ignored) 100 chars + 20 spaces -> warns: ${
 console.log(`--- 101 chars (over, must warn) ---`)
 await first.fill('y'.repeat(101))
 await page.waitForTimeout(120)
-const warn = row.locator('p.text-amber-700').first()
+const warn = row.locator('[data-clue-warning]').first()
 console.log(`  warning shown: ${await rowWarn()}`)
 console.log(`  copy: ${(await warn.textContent()).replace(/\s+/g, ' ').trim()}`)
-console.log(`  input border turned amber: ${(await first.getAttribute('class')).includes('border-amber-400')}`)
+console.log(`  input border flagged: ${(await first.getAttribute('class')).includes('border-accent')}`)
 console.log(`  aria-describedby wired: ${await first.getAttribute('aria-describedby')}`)
 console.log(`  tallies: ${JSON.stringify(await tallyText())}`)
 
@@ -55,7 +55,7 @@ console.log(`  value kept all 400 chars: ${(await first.inputValue()).length ===
 console.log(`--- clearing it removes the warning ---`)
 await first.fill('Short clue')
 await page.waitForTimeout(120)
-console.log(`  row warnings: ${await page.locator('p.text-amber-700').count()}`)
+console.log(`  row warnings: ${await page.locator('[data-clue-warning]').count()}`)
 console.log(`  tallies: ${JSON.stringify(await tallyText())}`)
 console.log(`\nCONSOLE_ERRORS=${JSON.stringify(errors)}`)
 await b.close()

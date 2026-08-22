@@ -6,10 +6,10 @@ const ctx = await b.newContext({ viewport:{width:+W,height:+H}, isMobile:true, h
 const page = await ctx.newPage()
 await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil:'networkidle' })
 await page.evaluate(() => localStorage.clear()); await page.reload({ waitUntil:'networkidle' })
-await page.waitForSelector('.grid.select-none'); await page.waitForTimeout(300)
+await page.waitForSelector('[data-grid]'); await page.waitForTimeout(300)
 const r = await page.evaluate(async () => {
   const next = document.querySelector('button[aria-label="Next clue"]')
-  const grid = document.querySelector('.grid.select-none')
+  const grid = document.querySelector('[data-grid]')
   const bar = next.closest('div')
   const gridSizes = new Set(), barSizes = new Set()
   let scrolled = 0

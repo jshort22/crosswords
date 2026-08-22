@@ -39,7 +39,7 @@ export default function CrosswordGrid({
   // per-cell borders: 1fr tracks land on fractional pixels, and per-cell borders
   // render hairline-uneven at those sizes. The gold celebration recolours this
   // background, which is why the borderColor prop moved up here.
-  const lineColor = celebrationPhase === 'gold' ? 'bg-amber-400' : 'bg-gray-400'
+  const celebrating = celebrationPhase === 'gold'
 
   return (
     <div
@@ -69,14 +69,29 @@ export default function CrosswordGrid({
         <div
           className="absolute inset-0 z-10 pointer-events-none animate-sweep"
           style={{
-            background: 'linear-gradient(90deg, transparent 0%, rgba(251,191,36,0.55) 50%, transparent 100%)',
+            background: 'linear-gradient(90deg, transparent 0%, var(--gold-sweep) 50%, transparent 100%)',
             backgroundSize: '200% 100%',
           }}
         />
       )}
 
+      {/* data-grid / data-cell / data-active / data-wrong / data-celebrating are
+          TEST HOOKS. The e2e harnesses used to select on Tailwind colour classes
+          (.bg-amber-300 for the cursor, .bg-black for a block, .bg-amber-400 for
+          the celebration), which meant a restyle silently broke every one of
+          them. Keep these attributes stable even if the palette changes again. */}
       <div
-        className={`grid select-none h-full w-full gap-px p-px transition-colors duration-300 ${lineColor}`}
+        data-grid=""
+        data-celebrating={celebrating ? '' : undefined}
+        // Deliberately SQUARE, in a design that rounds everything else. Rounding
+        // this container needs overflow-hidden to clip the corner, which clipped
+        // 1-Across's number right off the first cell; and rounding the cells
+        // themselves left a visible pinhole of line colour at every four-way
+        // intersection. A crossword grid is a grid — the softness lives in the
+        // cards, buttons, sheet and keys instead.
+        className={`grid select-none h-full w-full gap-px p-px transition-colors duration-300 ${
+          celebrating ? 'bg-gold' : 'bg-cell-line'
+        }`}
         style={{
           gridTemplateColumns: `repeat(${puzzle.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${puzzle.rows}, minmax(0, 1fr))`,
@@ -95,21 +110,25 @@ export default function CrosswordGrid({
               return (
                 <div
                   key={key}
-                  className="bg-black"
+                  data-cell="black"
+                  className="bg-cell-black"
                   onPointerDown={e => e.preventDefault()}
                 />
               )
             }
 
             const bgColor = isActive
-              ? 'bg-amber-300'
+              ? 'bg-cell-active'
               : inWord
-              ? 'bg-sky-100'
-              : 'bg-white'
+              ? 'bg-cell-word'
+              : 'bg-cell'
 
             return (
               <div
                 key={key}
+                data-cell="white"
+                data-active={isActive ? '' : undefined}
+                data-in-word={inWord ? '' : undefined}
                 onPointerDown={e => {
                   // preventDefault avoids the synthesised mouse sequence and the
                   // text-selection/scroll behaviour that comes with it on touch.
@@ -126,19 +145,22 @@ export default function CrosswordGrid({
               >
                 {cell.number !== null && (
                   <span
-                    className="absolute top-0 left-[6%] text-gray-700 font-medium leading-none"
+                    className={`absolute top-0 left-[6%] font-medium leading-none ${
+                      isActive ? 'text-cell-active-ink' : 'text-cell-num'
+                    }`}
                     style={{ fontSize: 'calc(22cqw / var(--cols))' }}
                   >
                     {cell.number}
                   </span>
                 )}
                 <span
-                  className={`font-bold leading-none select-none ${
+                  data-wrong={solverCell?.isCorrect === false ? '' : undefined}
+                  className={`font-semibold leading-none select-none ${
                     solverCell?.isCorrect === false
-                      ? 'text-red-600'
-                      : solverCell?.userLetter
-                      ? 'text-gray-900'
-                      : ''
+                      ? 'text-danger'
+                      : isActive
+                      ? 'text-cell-active-ink'
+                      : 'text-ink'
                   }`}
                   style={{ fontSize: 'calc(52cqw / var(--cols))' }}
                 >

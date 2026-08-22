@@ -12,10 +12,10 @@ for (const [label, opts] of cases) {
   await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
   await page.evaluate(() => localStorage.clear())
   await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForSelector('.grid.select-none')
+  await page.waitForSelector('[data-grid]')
   await page.waitForTimeout(500)
   const m = await page.evaluate(() => {
-    const g = document.querySelector('.grid.select-none').getBoundingClientRect()
+    const g = document.querySelector('[data-grid]').getBoundingClientRect()
     const kbd = document.querySelector('div[aria-label="Letter keyboard"]')
     const bar = document.querySelector('button[aria-label="Next clue"]')
     const menu = document.querySelector('button[aria-label="Puzzle actions"]')

@@ -18,11 +18,11 @@ for (const ID of IDS) {
     const errs = []
     page.on('console', m => m.type() === 'error' && errs.push(m.text()))
     const res = await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
-    await page.waitForSelector('.grid.select-none')
+    await page.waitForSelector('[data-grid]')
     await page.waitForTimeout(400)
 
     const r = await page.evaluate(() => {
-      const cells = [...document.querySelectorAll('.grid.select-none > div')]
+      const cells = [...document.querySelectorAll('[data-grid] > div')]
       // The letter is the LAST span in a white cell; a clue number is an
       // absolutely-positioned span, so filter those out rather than counting
       // all text (every numbered cell has text).
@@ -33,9 +33,9 @@ for (const ID of IDS) {
       return {
         total: cells.length,
         filled: letters.length,
-        active: cells.findIndex(d => d.className.includes('bg-amber-300')),
-        firstWhite: cells.findIndex(d => !d.className.includes('bg-black')),
-        gold: document.querySelectorAll('.bg-amber-200, .bg-yellow-200, [class*="gold"]').length,
+        active: cells.findIndex(d => d.hasAttribute('data-active')),
+        firstWhite: cells.findIndex(d => d.dataset.cell === 'white'),
+        gold: document.querySelectorAll('[data-celebrating]').length,
         modal: document.querySelectorAll('[role="dialog"]').length,
         keys: Object.keys(localStorage).length,
         storage: Object.keys(localStorage),

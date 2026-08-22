@@ -16,8 +16,8 @@ const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } })
 const page = await ctx.newPage()
 const errs = []
 page.on('pageerror', e => errs.push(e.message))
-const SEL = '.grid.select-none > div'
-const T = async () => (await page.locator('.font-mono.tabular-nums').first().innerText()).trim()
+const SEL = '[data-grid] > div'
+const T = async () => (await page.locator('[data-timer]').first().innerText()).trim()
 const secs = t => { const [m, s] = t.split(':').map(Number); return m * 60 + s }
 const open = async () => { await page.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' }); await page.waitForSelector(SEL) }
 const wait = ms => page.waitForTimeout(ms)

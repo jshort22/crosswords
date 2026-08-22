@@ -10,7 +10,7 @@ for (const [w, h] of [[320, 568], [375, 667], [390, 844], [430, 932]]) {
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1' })
   const page = await ctx.newPage()
   await page.goto('http://localhost:3000/puzzles/ac04774b-7f4c-4a4d-beaa-421147663566', { waitUntil: 'networkidle' })
-  await page.waitForSelector('.grid.select-none')
+  await page.waitForSelector('[data-grid]')
   await page.waitForTimeout(250)
   const r = await page.evaluate((clues) => {
     const bar = document.querySelector('button[aria-label="Next clue"]').closest('div')
