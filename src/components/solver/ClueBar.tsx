@@ -21,9 +21,16 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
   return (
     /* Fixed height, deliberately: if the bar grew with the clue, the grid area
        would shrink and the cells would visibly resize every time you moved
-       between a one-line and a two-line clue. Two lines covers ~95% of clues
-       here (median 26 chars, 95th percentile 71); longer ones scroll inside. */
-    <div className="touch-target shrink-0 md:hidden h-14 flex items-stretch border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+       between a one-line and a two-line clue.
+
+       Sized for exactly THREE lines: 3 x 19.25px line box (text-sm at
+       leading-snug) = 57.75px, plus the button's py-2 (16px) = 73.75px, so
+       4.75rem (76px) with a couple of px to spare. Measured over all 298
+       clues in the library, three lines shows the whole clue for 298/298 at
+       430px wide, 297/298 at 390px, and 295/298 at 375px (at 320px, nine
+       clues still overflow and two need five lines). It costs 20px of grid
+       height on every puzzle, which is the trade being made. */
+    <div className="touch-target shrink-0 md:hidden h-[4.75rem] flex items-stretch border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
       <button type="button" tabIndex={-1} aria-label="Previous clue" onClick={onPrev} className={arrowClass}>
         ‹
       </button>
@@ -47,16 +54,17 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
               {direction === 'across' ? 'A' : 'D'}
             </span>
             {/* Wraps freely, but the height is capped so no clue length can
-                squeeze the grid — the grid takes whatever height is left. A
-                fixed line-clamp would just move the cliff: real clues here run
-                from 26 chars (median) to 132 (about four lines on a phone).
-                Past the cap this scrolls, so nothing is ever unreachable, and
-                the full text is always one tap away in the clue sheet. */}
+                squeeze the grid — the grid takes whatever height is left. Real
+                clues here run from 26 chars (median) to 132 (the longest, which
+                is the only one that still needs a fourth line at 390px). Past
+                the cap this scrolls, so nothing is ever unreachable, and the
+                full text is always one tap away in the clue sheet. */}
             {/* max-height is expressed in em so it lands on an exact multiple of
-                the line box: leading-snug is 1.375, so 2.75em is precisely two
-                lines. A px cap (e.g. max-h-12) slices the third line in half,
-                which reads as broken rather than as "there is more, scroll". */}
-            <span className="min-w-0 flex-1 max-h-[2.75em] overflow-y-auto overscroll-contain text-sm leading-snug text-gray-800 dark:text-gray-200">
+                the line box: leading-snug is 1.375, so 4.125em is precisely
+                three lines. A px cap (e.g. max-h-14) slices the fourth line in
+                half, which reads as broken rather than as "there is more,
+                scroll". Keep this in step with the bar's h-[4.75rem] above. */}
+            <span className="min-w-0 flex-1 max-h-[4.125em] overflow-y-auto overscroll-contain text-sm leading-snug text-gray-800 dark:text-gray-200">
               {clue.clue || <em className="text-gray-400">No clue</em>}
             </span>
           </div>
