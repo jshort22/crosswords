@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PuzzleRow } from '@/lib/supabase/types'
-import { deserializeGrid, serializeGrid, numberGrid, difficultyLabel } from '@/lib/crossword/utils'
+import { deserializeGrid, serializeGrid, numberGrid, difficultyLabel, deserializeThemeSet, serializeThemeSet } from '@/lib/crossword/utils'
 import GridEditor from './GridEditor'
 import ClueEditor from './ClueEditor'
 
@@ -25,6 +25,9 @@ export default function EditPuzzleClient({ puzzle }: Props) {
   const [cluesDown, setCluesDown] = useState<Record<number, string>>(
     (puzzle.clues_down as Record<number, string>) ?? {}
   )
+  // deserializeThemeSet is tolerant: puzzles created before the theme feature
+  // hold `{}` here, and a hand-edited row can hold anything.
+  const [themeSet, setThemeSet] = useState(() => deserializeThemeSet(puzzle.theme_set))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,6 +44,7 @@ export default function EditPuzzleClient({ puzzle }: Props) {
           grid_size_cols: grid[0]?.length ?? 0,
           clues_across: cluesAcross as unknown,
           clues_down: cluesDown as unknown,
+          theme_set: serializeThemeSet(themeSet),
           updated_at: new Date().toISOString(),
           ...(publish !== undefined ? { is_published: publish } : {}),
         }
@@ -57,7 +61,7 @@ export default function EditPuzzleClient({ puzzle }: Props) {
         setSaving(false)
       }
     },
-    [supabase, puzzle.id, title, difficulty, grid, cluesAcross, cluesDown, router]
+    [supabase, puzzle.id, title, difficulty, grid, cluesAcross, cluesDown, themeSet, router]
   )
 
   return (
@@ -101,8 +105,9 @@ export default function EditPuzzleClient({ puzzle }: Props) {
         <section className="bg-surface rounded-xl border border-line p-5 space-y-4">
           <h2 className="font-semibold text-ink">Details</h2>
           <div>
-            <label className="block text-xs text-ink-soft mb-1">Title</label>
+            <label htmlFor="puzzle-title" className="block text-xs text-ink-soft mb-1">Title</label>
             <input
+              id="puzzle-title"
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -146,6 +151,8 @@ export default function EditPuzzleClient({ puzzle }: Props) {
             cluesDown={cluesDown}
             onChangeAcross={setCluesAcross}
             onChangeDown={setCluesDown}
+            themeSet={themeSet}
+            onChangeThemeSet={setThemeSet}
           />
         </section>
 

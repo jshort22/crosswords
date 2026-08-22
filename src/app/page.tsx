@@ -20,7 +20,7 @@ export default async function HomePage() {
     <div className="min-h-screen">
       <header className="pt-[env(safe-area-inset-top)]">
         <div className="max-w-5xl mx-auto px-4 pt-5">
-          <div className="bg-surface rounded-[18px] shadow-raise px-5 py-4 flex items-center justify-between">
+          <div className="bg-surface border border-edge rounded-[18px] shadow-raise px-5 py-4 flex items-center justify-between">
           <h1 className="font-display text-[26px] font-extrabold tracking-[-0.03em] text-ink">
               Crossword Puzzles
             </h1>

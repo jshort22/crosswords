@@ -37,7 +37,7 @@ function GridThumbnail({ grid, rows, cols }: { grid: Json; rows: number; cols: n
 
 export default function PuzzleCard({ puzzle }: Props) {
   return (
-    <div className="bg-surface rounded-[20px] shadow-raise hover:-translate-y-1 transition-transform duration-200 flex flex-col overflow-hidden">
+    <div className="bg-surface border border-edge rounded-[20px] shadow-raise hover:-translate-y-1 transition-transform duration-200 flex flex-col overflow-hidden">
       <div className="flex items-center justify-center bg-sunken py-7">
         <div className="rounded-lg overflow-hidden">
           <GridThumbnail grid={puzzle.grid} rows={puzzle.grid_size_rows} cols={puzzle.grid_size_cols} />

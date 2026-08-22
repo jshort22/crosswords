@@ -1,4 +1,4 @@
-import type { Grid, GridCell, Clue, CrosswordPuzzle, SolverCell } from './types'
+import type { Grid, GridCell, Clue, CrosswordPuzzle, SolverCell, ClueRef, ThemeSet, Direction } from './types'
 import type { PuzzleRow } from '@/lib/supabase/types'
 
 /** Returns true if the cell at [r,c] should start an across word. */
@@ -142,6 +142,7 @@ export function rowToPuzzle(row: PuzzleRow): CrosswordPuzzle {
     grid,
     cluesAcross: across,
     cluesDown: down,
+    themeSet: deserializeThemeSet(row.theme_set),
     sourceFileUrl: row.source_file_url,
     isPublished: row.is_published,
     createdAt: row.created_at,
@@ -218,6 +219,136 @@ export function prevCellInWord(
   return [row, col]
 }
 
+/**
+ * Where backspace should go when the cursor sits on an empty cell.
+ *
+ * `prevCellInWord` deliberately stops at the word's edge, which is right for
+ * movement *within* a word but left backspace with nowhere to go: at a word's
+ * first cell it returned that same cell, so holding the key at a black square
+ * or the grid edge did nothing at all and deleting "backwards through the
+ * puzzle" stopped dead at every boundary. ADVANCE has a word-jump for exactly
+ * this case; this is its mirror.
+ *
+ * At a word's first cell we step to the LAST cell of the previous clue in the
+ * same direction. It deliberately does **not wrap**: at the first clue in a
+ * direction the cursor stops, because there is genuinely nothing before it. An
+ * earlier revision wrapped the way ADVANCE does, which meant holding Backspace
+ * at the top of the grid teleported you to the bottom-right and quietly began
+ * eating the answers there — the same objection that rules out skipping, below.
+ * Wrapping is fine for a cursor move; it is not fine for a destructive one.
+ *
+ * Unlike Tab, this does **not** skip over words that have nothing to delete:
+ * backspace is destructive, so it walks the grid one cell at a time rather than
+ * teleporting the cursor into a distant answer and erasing it. Held down, the
+ * key auto-repeats, so crossing an empty stretch costs nothing.
+ *
+ * A lone white cell with no clue in this direction has no word to leave; the
+ * cursor stays put there.
+ */
+export function prevCellForBackspace(
+  puzzle: CrosswordPuzzle,
+  row: number,
+  col: number,
+  direction: 'across' | 'down'
+): [number, number] {
+  const [pr, pc] = prevCellInWord(puzzle.grid, row, col, direction)
+  if (pr !== row || pc !== col) return [pr, pc]
+
+  const clues = direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
+  if (clues.length === 0) return [row, col]
+  const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === row && c2 === col))
+  if (idx === -1) return [row, col]
+
+  if (idx === 0) return [row, col]
+  const prevClue = clues[idx - 1]
+  return prevClue.cells[prevClue.cells.length - 1] ?? [row, col]
+}
+
+
+/* ── Theme set ────────────────────────────────────────────────────────────────
+   Stored as compact strings ("45A", "17D") because a theme set is hand-authored
+   and gets read by a human in the Supabase table editor as often as by code.
+   The direction is part of the ref: 17A and 17D are different answers.        */
+
+export const EMPTY_THEME_SET: ThemeSet = { marquee: null, themers: [] }
+
+export function refToString(ref: ClueRef): string {
+  return `${ref.number}${ref.direction === 'across' ? 'A' : 'D'}`
+}
+
+export function parseClueRef(raw: unknown): ClueRef | null {
+  if (typeof raw !== 'string') return null
+  const m = /^(\d+)([AD])$/.exec(raw.trim().toUpperCase())
+  if (!m) return null
+  return { number: Number(m[1]), direction: m[2] === 'A' ? 'across' : 'down' }
+}
+
+export function sameRef(a: ClueRef | null, b: ClueRef | null): boolean {
+  return !!a && !!b && a.number === b.number && a.direction === b.direction
+}
+
+export function serializeThemeSet(set: ThemeSet): unknown {
+  return {
+    marquee: set.marquee ? refToString(set.marquee) : null,
+    themers: set.themers.map(refToString),
+  }
+}
+
+/**
+ * Tolerant by design: a puzzle saved before the theme feature existed has `{}`
+ * here, and one hand-edited in the Supabase table editor may hold anything at
+ * all. Both must read as "no theme", never throw — this runs during the solver's
+ * first render.
+ */
+export function deserializeThemeSet(raw: unknown): ThemeSet {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return EMPTY_THEME_SET
+  const obj = raw as Record<string, unknown>
+  const marquee = parseClueRef(obj.marquee)
+  const themers = Array.isArray(obj.themers)
+    ? obj.themers.map(parseClueRef).filter((r): r is ClueRef => r !== null)
+    : []
+  // A themer that duplicates the marquee would light itself; drop it.
+  const deduped = themers.filter(t => !sameRef(t, marquee))
+  // Without a marquee there is no hub, so there is no theme set at all.
+  if (!marquee) return EMPTY_THEME_SET
+  return { marquee, themers: deduped }
+}
+
+/**
+ * Which answers should light up as "linked" given the answer you are on.
+ *
+ * Deliberately asymmetric: the marquee lights every themer, but a themer lights
+ * only the marquee — not its siblings. The marquee is the hub, and lighting the
+ * whole set from any member would give away how many theme answers there are
+ * the first time you touched one of them.
+ */
+export function linkedRefsFor(themeSet: ThemeSet, current: ClueRef | null): ClueRef[] {
+  if (!current || !themeSet.marquee) return []
+  if (sameRef(current, themeSet.marquee)) return themeSet.themers
+  if (themeSet.themers.some(t => sameRef(t, current))) return [themeSet.marquee]
+  return []
+}
+
+/** The cells of every linked answer, as "row,col" keys for O(1) lookup in render. */
+export function linkedCellSet(
+  puzzle: CrosswordPuzzle,
+  current: ClueRef | null
+): Set<string> {
+  const out = new Set<string>()
+  for (const ref of linkedRefsFor(puzzle.themeSet, current)) {
+    const clues = ref.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
+    const clue = clues.find(c => c.number === ref.number)
+    if (!clue) continue          // ref points at an answer the grid no longer has
+    for (const [r, c] of clue.cells) out.add(`${r},${c}`)
+  }
+  return out
+}
+
+/** True if this answer belongs to the theme set at all (either role). */
+export function isThemeMember(themeSet: ThemeSet, ref: ClueRef | null): boolean {
+  if (!ref) return false
+  return sameRef(ref, themeSet.marquee) || themeSet.themers.some(t => sameRef(t, ref))
+}
 
 export function difficultyLabel(d: number): string {
   return ['', 'Beginner', 'Easy', 'Medium', 'Hard', 'Expert'][d] ?? 'Unknown'

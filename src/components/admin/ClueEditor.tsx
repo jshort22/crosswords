@@ -1,9 +1,11 @@
 'use client'
 
-import type { Grid } from '@/lib/crossword/types'
+import type { Grid, Direction, ThemeSet, ClueRef } from '@/lib/crossword/types'
 import {
   CLUE_THREE_LINE_LIMIT,
   clueOverflowsThreeLines,
+  refToString,
+  sameRef,
   startsAcross,
   startsDown,
 } from '@/lib/crossword/utils'
@@ -20,6 +22,29 @@ interface Props {
   cluesDown: Record<number, string>
   onChangeAcross: (clues: Record<number, string>) => void
   onChangeDown: (clues: Record<number, string>) => void
+  themeSet: ThemeSet
+  onChangeThemeSet: (set: ThemeSet) => void
+}
+
+// One marquee per puzzle, so the marquee control is a RADIO and its name is
+// shared by both sections — two marquees become impossible by construction
+// rather than something to validate after the fact. Themer is a checkbox
+// because there are many. The two roles are mutually exclusive: taking one
+// clears the other.
+const MARQUEE_RADIO_NAME = 'theme-marquee'
+
+// The labels sit in a header row rather than on all 140 rows. Repeating
+// "Marquee"/"Themer" per clue drowned the clues themselves.
+function ThemeColumnHeader() {
+  return (
+    <div className="flex gap-3 items-center pb-1 pl-11">
+      <div className="flex-1" />
+      <div className="shrink-0 flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] text-ink-soft">
+        <span className="w-14 text-center">Marquee</span>
+        <span className="w-14 text-center">Themer</span>
+      </div>
+    </div>
+  )
 }
 
 function buildEntries(grid: Grid, direction: 'across' | 'down'): ClueEntry[] {
@@ -53,14 +78,20 @@ function buildEntries(grid: Grid, direction: 'across' | 'down'): ClueEntry[] {
 
 function ClueSection({
   title,
+  direction,
   entries,
   clues,
   onChange,
+  themeSet,
+  onChangeThemeSet,
 }: {
   title: string
+  direction: Direction
   entries: ClueEntry[]
   clues: Record<number, string>
   onChange: (c: Record<number, string>) => void
+  themeSet: ThemeSet
+  onChangeThemeSet: (set: ThemeSet) => void
 }) {
   const longCount = entries.filter(e => clueOverflowsThreeLines(clues[e.number] ?? '')).length
 
@@ -81,13 +112,19 @@ function ClueSection({
         <p className="text-sm text-ink-soft italic">No {title.toLowerCase()} clues — check your grid.</p>
       ) : (
         <div className="space-y-2">
-          {entries.map(entry => (
+          <ThemeColumnHeader />
+          {entries.map(entry => {
+            const ref: ClueRef = { number: entry.number, direction }
+            const isMarquee = sameRef(themeSet.marquee, ref)
+            const isThemer = themeSet.themers.some(t => sameRef(t, ref))
+            const label = `${entry.number} ${direction === 'across' ? 'Across' : 'Down'}`
+            return (
             <div key={entry.number} className="flex gap-3 items-start">
               <div className="w-8 text-right shrink-0 pt-2">
                 <span className="text-sm font-semibold text-ink-soft">{entry.number}</span>
               </div>
               <div className="shrink-0 pt-2">
-                <span className="text-xs font-mono text-accent bg-accent-soft px-1.5 py-0.5 rounded">
+                <span className="text-xs font-mono text-accent-soft-ink bg-accent-soft px-1.5 py-0.5 rounded">
                   {entry.answer} ({entry.answer.replace(/_/g, '').length})
                 </span>
               </div>
@@ -126,31 +163,142 @@ function ClueSection({
                   </p>
                 )}
               </div>
+
+              {/* Roles. Taking one clears the other — an answer cannot be both
+                  the revealer and one of the things it reveals. */}
+              <div className="shrink-0 pt-2 flex items-center gap-3">
+                <span className="w-14 flex justify-center">
+                  <input
+                    type="radio"
+                    name={MARQUEE_RADIO_NAME}
+                    data-marquee-radio={refToString(ref)}
+                    checked={isMarquee}
+                    aria-label={`Make ${label} the marquee answer`}
+                    onChange={() =>
+                      onChangeThemeSet({
+                        marquee: ref,
+                        themers: themeSet.themers.filter(t => !sameRef(t, ref)),
+                      })
+                    }
+                    className="w-4 h-4 accent-accent cursor-pointer"
+                  />
+                </span>
+                <span className="w-14 flex justify-center">
+                  <input
+                    type="checkbox"
+                    data-themer-checkbox={refToString(ref)}
+                    checked={isThemer}
+                    aria-label={`Mark ${label} as a theme answer`}
+                    onChange={e =>
+                      onChangeThemeSet({
+                        marquee: isMarquee ? null : themeSet.marquee,
+                        themers: e.target.checked
+                          ? [...themeSet.themers.filter(t => !sameRef(t, ref)), ref]
+                          : themeSet.themers.filter(t => !sameRef(t, ref)),
+                      })
+                    }
+                    className="w-4 h-4 accent-accent cursor-pointer"
+                  />
+                </span>
+              </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
   )
 }
 
-export default function ClueEditor({ grid, cluesAcross, cluesDown, onChangeAcross, onChangeDown }: Props) {
+export default function ClueEditor({
+  grid,
+  cluesAcross,
+  cluesDown,
+  onChangeAcross,
+  onChangeDown,
+  themeSet,
+  onChangeThemeSet,
+}: Props) {
   const acrossEntries = buildEntries(grid, 'across')
   const downEntries = buildEntries(grid, 'down')
 
+  const hasTheme = themeSet.marquee !== null || themeSet.themers.length > 0
+  // Advisory, never blocking — same posture as the clue-length warning. A theme
+  // set is optional, and a half-finished one should say so rather than fail to
+  // save. A themer list with no marquee has no hub, so the solver drops it.
+  const warning =
+    themeSet.marquee === null && themeSet.themers.length > 0
+      ? 'No marquee chosen, so these theme answers will not highlight. Pick one.'
+      : themeSet.marquee !== null && themeSet.themers.length === 0
+      ? 'A marquee with no theme answers has nothing to highlight.'
+      : null
+
   return (
     <div className="space-y-8">
+      {/* With up to 140 rows, checked boxes are impossible to find by scrolling,
+          so the set is stated here. */}
+      <div data-theme-summary="" className="border border-line rounded-xl p-4 bg-sunken">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-ink-soft">Theme</h3>
+          {hasTheme ? (
+            <button
+              type="button"
+              onClick={() => onChangeThemeSet({ marquee: null, themers: [] })}
+              className="text-xs text-ink-soft underline hover:text-ink"
+            >
+              Clear theme
+            </button>
+          ) : null}
+        </div>
+        <p className="mt-2 text-sm text-ink">
+          {hasTheme ? (
+            <>
+              <span className="font-semibold">
+                {themeSet.marquee ? refToString(themeSet.marquee) : '—'}
+              </span>{' '}
+              marquee
+              {themeSet.themers.length > 0 && (
+                <>
+                  {' · '}
+                  {themeSet.themers.length}{' '}
+                  {themeSet.themers.length === 1 ? 'theme answer' : 'theme answers'}{' '}
+                  <span className="text-ink-soft">
+                    ({themeSet.themers.map(refToString).join(', ')})
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            <span className="text-ink-soft">
+              No theme set. Optional — pick a marquee and its theme answers below to have
+              them highlight each other in the solver.
+            </span>
+          )}
+        </p>
+        {warning && (
+          <p data-theme-warning="" className="mt-2 text-xs text-diff-4">
+            {warning}
+          </p>
+        )}
+      </div>
+
       <ClueSection
         title="Across"
+        direction="across"
         entries={acrossEntries}
         clues={cluesAcross}
         onChange={onChangeAcross}
+        themeSet={themeSet}
+        onChangeThemeSet={onChangeThemeSet}
       />
       <ClueSection
         title="Down"
+        direction="down"
         entries={downEntries}
         clues={cluesDown}
         onChange={onChangeDown}
+        themeSet={themeSet}
+        onChangeThemeSet={onChangeThemeSet}
       />
     </div>
   )

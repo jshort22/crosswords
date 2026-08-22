@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect } from 'react'
 import type { CrosswordPuzzle, SolverState, Direction } from '@/lib/crossword/types'
-import { firstUnfilledCell, getWordCells, nextCellInWord, prevCellInWord } from '@/lib/crossword/utils'
+import { firstUnfilledCell, getWordCells, nextCellInWord, prevCellForBackspace } from '@/lib/crossword/utils'
 
 type Action =
   | { type: 'SET_LETTER'; row: number; col: number; letter: string }
@@ -155,8 +155,11 @@ function reducer(state: SolverState, action: Action, puzzle: CrosswordPuzzle): S
       // word so the cursor still lands somewhere sensible.
       return nextWordStart()
     }
+    // Backspace's cursor move. It crosses word boundaries — see
+    // prevCellForBackspace — so holding the key deletes backwards through the
+    // puzzle in clue order instead of stopping at every black square.
     case 'RETREAT': {
-      const [nr, nc] = prevCellInWord(puzzle.grid, state.activeRow, state.activeCol, state.direction)
+      const [nr, nc] = prevCellForBackspace(puzzle, state.activeRow, state.activeCol, state.direction)
       return { ...state, activeRow: nr, activeCol: nc }
     }
     // Tab / Shift+Tab. These SKIP answers that are already complete: walking

@@ -19,8 +19,19 @@
   --surface: #ffffff;         /* cards, header, panels */
   --sunken: #f4f1ea;          /* recessed: thumbnails, keyboard bed, clue bar */
   --ink: #1e1b17;
-  --ink-soft: #7a7367;
+  /* #7a7367 measured 4.16:1 on --sunken and 4.28:1 on --canvas — under the
+     4.5:1 that WCAG 1.4.3 asks of normal-size text. This clears it on all
+     three light grounds (4.53 / 4.66 / 5.11) and is barely distinguishable
+     from the old value. Dark's --ink-soft already passed and is untouched. */
+  --ink-soft: #746d62;
   --line: #e7e1d9;
+  /* --line divides things INSIDE a surface. --edge is the outer boundary of a
+     raised surface against the page ground, which is a harder job: --surface on
+     --canvas is only 1.10:1, so before this the shadow was the only thing
+     separating a card from the background, and on a bright screen it vanished.
+     ~2:1 against both the ground and the card fill — visible without turning
+     the card into a wireframe. */
+  --edge: #b3aea8;
 
   --accent: #14776a;
   --accent-ink: #ffffff;      /* text ON accent */
@@ -34,10 +45,24 @@
   --cell-line: #ddd6ca;
   --cell-num: #8d8677;
   --cell-word: #d9ece6;       /* rest of the active word */
+  /* Theme links. Yellow, the way the NYT marks cross-referenced entries — and
+     deliberately a different LIGHTNESS from --cell-word, not just a different
+     hue: mint and yellow at equal luminance are near-indistinguishable with
+     red-green colour blindness. This is 1.42:1 against the plain cell and
+     1.16:1 against the active word, and holds 12:1 for the letters on it. */
+  --cell-linked: #e8d98e;
   --cell-active: #14776a;     /* the cursor */
   --cell-active-ink: #ffffff;
 
-  --gold: #d99b2b;            /* celebration only */
+  /* --gold is the CELEBRATION fill: large areas, where its lightness is the
+     point. As a small foreground mark it only reaches 2.42:1 on white, under
+     the 3:1 WCAG 1.4.11 asks of meaningful non-text. --gold-ink is the same
+     hue taken dark enough to read as an icon (3.74 on surface, 3.32 on sunken,
+     3.20 on --gold-soft); --gold-soft is its tinted field. Same
+     colour/soft/ink shape as --accent and --danger. */
+  --gold: #d99b2b;            /* celebration fill only */
+  --gold-ink: #ac7b22;        /* gold as a small foreground mark */
+  --gold-soft: #f8ecd5;       /* field behind --gold-ink */
   --gold-sweep: rgba(217, 155, 43, 0.5);
   --danger: #a8321f;
   --danger-soft: #fbe7e2;
@@ -60,6 +85,7 @@
   --ink: #f3eee6;
   --ink-soft: #9b9184;
   --line: #322d26;
+  --edge: #564d41;            /* lighter than the card, same ~2:1 job */
 
   --accent: #43c3ab;
   --accent-ink: #10221e;
@@ -71,10 +97,13 @@
   --cell-line: #17140f;
   --cell-num: #8e8578;
   --cell-word: #24413b;
+  --cell-linked: #544824;     /* 1.68:1 vs the cell, 1.23:1 vs the active word */
   --cell-active: #43c3ab;
   --cell-active-ink: #10221e;
 
   --gold: #e8bc72;
+  --gold-ink: #e8bc72;        /* already 9.47:1 on dark surface */
+  --gold-soft: #3a2e1a;
   --gold-sweep: rgba(232, 188, 114, 0.42);
   --danger: #f0a094;
   --danger-soft: #3a201b;
@@ -99,6 +128,7 @@
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-line: var(--line);
+  --color-edge: var(--edge);
 
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
@@ -110,10 +140,13 @@
   --color-cell-line: var(--cell-line);
   --color-cell-num: var(--cell-num);
   --color-cell-word: var(--cell-word);
+  --color-cell-linked: var(--cell-linked);
   --color-cell-active: var(--cell-active);
   --color-cell-active-ink: var(--cell-active-ink);
 
   --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft: var(--gold-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
 

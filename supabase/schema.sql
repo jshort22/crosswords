@@ -15,10 +15,16 @@ create table if not exists puzzles (
   clues_down       jsonb not null default '{}',
   solution         jsonb not null default '[]',
   source_file_url  text,
+  -- One theme set per puzzle: {"marquee":"45A","themers":["17A","23A"]}.
+  -- Refs carry their direction because 17A and 17D are different answers.
+  theme_set        jsonb not null default '{}',
   is_published     boolean not null default false,
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );
+
+-- Existing databases: add the column without touching anything else.
+alter table puzzles add column if not exists theme_set jsonb not null default '{}';
 
 -- ── updated_at trigger ────────────────────────────────────────────────────────
 

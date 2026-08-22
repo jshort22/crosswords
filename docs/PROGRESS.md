@@ -966,3 +966,363 @@ over two seconds on the reload itself, which made it flaky rather than wrong.
 (21×21), `skipfilled` (10 + mobile), `title-shift`, `timer-width`, `difficulty` —
 all green, no console or page errors. `tsc --noEmit` and `next build` clean.
 Menu screenshotted in both modes.
+
+---
+
+## Session 17 — Backspace Was Trapped Inside One Word
+
+Reported as: backspace works within a word, then gets stuck at the black
+squares. Holding the key should keep deleting the last letter in whatever order
+you are going.
+
+### The cause
+`RETREAT` derived its target from `prevCellInWord`, which **deliberately** stops
+at the word's edge — it returns the same cell when there is no previous white
+cell in the word. That is correct for movement *within* a word, and it was the
+right fix for an earlier bug where hand-rolled `-1` arithmetic cleared the
+preceding BLACK cell's record. But it left backspace with nowhere to go: at a
+word's first cell the cursor could not move, so nothing more was ever deleted.
+
+`ADVANCE` has a whole word-jumping path for exactly this situation at the *end*
+of a word. `RETREAT` never got the mirror image.
+
+### Measured, before the fix
+Typed 13 letters across three consecutive across words (auto-advance carries you
+between them), then pressed Backspace 23 times: **13 letters still on the grid,
+one distinct cursor position.** Not "mostly working" — completely inert, because
+auto-advance leaves the cursor on the *first* cell of the next word, which is
+the exact spot where the old code was frozen.
+
+### The fix
+`prevCellForBackspace(puzzle, row, col, direction)` in `utils.ts`. Within a word
+it defers to `prevCellInWord` unchanged; at a word's first cell it steps to the
+**last cell of the previous clue** in the same direction, wrapping at the first
+clue the way ADVANCE wraps at the last.
+
+Both `RETREAT` and `inputBackspace` call it. They must agree on the target —
+one moves the cursor, the other clears the letter — which is why it is one
+helper and not two pieces of arithmetic.
+
+### One judgement call: it does NOT skip
+Tab and the clue-bar arrows skip answers that are already complete. Backspace
+deliberately does not skip words with nothing to delete. **Backspace is
+destructive**, and skipping would mean teleporting the cursor into a distant
+answer and immediately erasing its last letter. Walking one cell at a time costs
+nothing in practice, because the key auto-repeats when held — which is how the
+bug was reported in the first place.
+
+### The theoretical hole, left open on purpose
+A white cell with no clue in its direction (a one-letter "word" between a black
+square and the grid edge) has no word to leave, so the cursor stays. Checked all
+three puzzles in the library: **zero such cells** — standard construction
+forbids one-letter answers. `ADVANCE` treats the same case identically. Left
+documented rather than invented around.
+
+### Verification
+New `scripts/e2e/backspace.mjs` — 14 assertions. **Confirmed it fails against
+the pre-fix code (6 failures), then passes**, which is the only reason to trust
+it. Regression suite re-run green: `skipfilled` (10), `arrow-skip` (0/16),
+`solve` plain, `revisit`, `mobile-solve`, `banner`, `staleprogress`,
+`freshstart`. No console or page errors. `tsc --noEmit` and `next build` clean.
+
+### Also this session: the solved mark is a trophy now
+On the library card, the mark beside your time was a checkmark. A tick reads as
+"done" the way a completed form field does — but the card is where you *choose*
+a puzzle, so the mark should say you beat this one. It is now a small stroked
+trophy in `--gold` (`text-gold`), the same gold as the completion sweep, so the
+reward reads as one colour across the app. The time beside it stays
+`text-accent`; gold icon against teal figures was checked at 3× in both modes
+before it was kept.
+
+Gave it a `data-solved-mark` hook while there. The solved state only renders
+once localStorage says so, which makes it the easiest thing on the page to break
+without noticing, and nothing was selecting it at all.
+
+`--gold`'s comment in `globals.css` said "celebration only". It no longer is.
+
+---
+
+## Session 18 — The Mobile Clue Bar Switches Direction
+
+Tapping the clue bar opened the full clue list. It now flips across <-> down,
+the way the NYT app behaves.
+
+Mechanically this is the gesture that already existed on the grid — `SET_ACTIVE`
+toggles direction when you tap the cell you are already on — given a target the
+width of the screen instead of one ~17px cell. That is the whole value of it on
+a phone. `toggleDirection` was already on the hook and unused from mobile. The
+cursor deliberately does not move.
+
+### The part that needed thought: the clue list had no other door
+`onOpenList` on the clue bar was the **only** entry point to the clue sheet on
+mobile. The ... menu had Show timer, Reset and Show incorrect, and nothing else
+opened it. Straight-swapping the tap would have made the full clue list
+unreachable on a phone — and the list is not decorative: it is the documented
+way back to an answer that is filled in but wrong, because Tab and the clue-bar
+arrows both skip completed answers by design.
+
+So it moved into the ... menu, as **Clue list**.
+
+### Why the menu and not a third button in the bar
+The bar is a fixed 76px sized for exactly three lines of clue, and the
+three-line fit was measured across all 298 clues in the library. A third 44px
+target would have cut the clue's width from ~302px to ~258px at 390px wide and
+pushed more clues into overflow — re-opening a question Session 11 had already
+settled with measurement. The menu costs the bar nothing. Confirmed after the
+change: bar still 76px, grid still 342px, 0 clues needing internal scroll.
+
+### It broke an existing harness, which is the point of having them
+`mobile-solve.mjs` tapped the clue bar to open the sheet. With the new
+behaviour that tap just flips direction, so the whole clue-sheet section would
+have gone on "passing" while testing nothing. Updated to open it from the menu.
+
+### Verification
+New `scripts/e2e/cluebar-toggle.mjs` — 13 assertions: the chip flips A<->D, the
+cursor holds still, the sheet does *not* open, typing afterwards runs down
+instead of across, the menu's Clue list opens the sheet and closes the menu, and
+picking a clue from the sheet still moves the cursor. Suite re-run green:
+`mobile-solve`, `stability` (76px / 342px), `cluebar` (300 clues, 0 scrolling),
+`skipfilled` (10 + mobile), `arrow-skip` (0/16). `tsc --noEmit` and `next build`
+clean. Menu screenshotted in both modes.
+
+### Session 18b — Two problems found by auditing the three changes
+Neither was reported; both came from going back and checking the work.
+
+**The clue bar stopped announcing the clue.** The direction toggle got
+`aria-label="Switch to down"`. On a `<button>`, `aria-label` *replaces* the
+element's content as its accessible name — so a screen reader read out "Switch
+to down" and nothing else, and on a phone that bar is the only place the clue is
+rendered. VoiceOver users could no longer read the clue at all. The label now
+runs clue first, action last: `1 Across: Street performer... Tap to switch to
+down.` The visible text is untouched. Verified by reading the computed
+accessible name, not by eyeballing the markup.
+
+**Backspace wrapped from the first word to the last.** Held at the top of the
+grid, the cursor jumped to the bottom-right and began deleting answers there —
+measured: starting at 1-Down, twelve presses ended on cell 218 of 225. That
+directly contradicts the rule used to justify not skipping in the first place:
+wrapping is fine for a cursor move and wrong for a destructive one. It now stops
+at the first clue in a direction, which is a real terminus, not stuckness.
+`backspace.mjs` grew to 18 assertions, covering the no-wrap stop and that the
+highlighted word follows the cursor across a boundary.
+
+---
+
+## Session 19 — WCAG 2.2 Audit
+
+Prompted by the accessible-name regression in 18b: if one had been introduced
+without noticing, what else was already there?
+
+### The standard
+**WCAG 2.2 is the current W3C Recommendation** — 5 October 2023, updated
+12 December 2024, and now also ISO/IEC 40500:2025. WCAG 3.0 is still an early
+draft with no recommendation date, so it is not a target. 2.2 added nine success
+criteria over 2.1 and removed 4.1.1 Parsing as obsolete. The ones that actually
+bear on this app are **2.5.8 Target Size (Minimum)** and **3.3.8 Accessible
+Authentication**, both new at AA/A.
+
+### What was found
+Scanned with axe-core 4.13 across 11 states — both themes, both viewports, and
+the overlay states a page-load scan never reaches (... menu, clue sheet,
+completion modal, admin login).
+
+- **`--ink-soft` failed 1.4.3.** #7a7367 measured **4.16:1 on `--sunken`** and
+  4.28:1 on `--canvas`, against the 4.5:1 required for normal text. It only
+  passed on pure white. This is every piece of secondary text in the light
+  theme — clue numbers in the bar, card metadata, the "Time"/"Difficulty"
+  captions. Now #746d62: 4.53 / 4.66 / 5.11. Dark already passed, untouched.
+- **The solver's back link had no accessible name on mobile** (2.4.4 / 4.1.2,
+  Level A). Its label is `hidden md:inline` and the arrow is `aria-hidden`, so
+  on a phone the link was announced as nothing at all.
+- **The gold trophy shipped in Session 17 was 2.42:1 on white** — under the 3:1
+  that 1.4.11 asks of meaningful non-text. Introduced two sessions ago and not
+  noticed, which is the same lesson as 18b.
+- Admin login: no `main` landmark, and the password field was labelled only by
+  its placeholder, which vanishes exactly when you might need it (3.3.2).
+- Two unlabelled `aside` landmarks on the desktop solver; the mobile clue bar,
+  keyboard and menu sat outside any landmark.
+
+### The `--gold` / `--gold-ink` split
+Rather than darken `--gold` and dull the celebration sweep, gold now follows the
+same colour/soft/ink shape as `--accent` and `--danger`: `--gold` stays the fill
+(large areas, lightness is the point), `--gold-ink` is dark enough to read as a
+small mark, `--gold-soft` is its field. The completion modal's mark became the
+same trophy on `--gold-soft`, so card and modal now agree.
+
+### Left as known, not fixed silently
+- **`--cell-num`** is 3.62:1 light and 4.18:1 dark against the cell. Fixing it
+  means darkening the grid numbers, which changes the look of the one element
+  the whole design is built around. Jack's call, not a quiet edit.
+- **Grid cells are 22px** at 15x15 and ~17px at 21x21, under 2.5.8's 24px. Taken
+  as the criterion's *essential* exception: a crossword has to show every column
+  at once. Every actual button and link passes 24x24 — verified, not assumed.
+
+### Verification
+`a11y.mjs`: **zero violations across all 11 states**, light and dark. The
+`display:contents` landmark wrapper was checked against the measured layout —
+bar still 76px, grid still 342px at both 15x15 and 21x21. Full suite green:
+`backspace` (18), `cluebar-toggle` (13), `skipfilled`, `arrow-skip`, `solve`,
+`mobile-solve`, `revisit`, `banner`, `staleprogress`, `freshstart`,
+`timer-toggle`, `difficulty`, `title-shift`, `stability`, `cluebar`. `tsc` and
+`next build` clean. Modal shot in both modes.
+
+**This is not a claim the app is fully accessible.** The grid is a `div` with
+key handlers and has never been tested with a real screen reader; nothing here
+was verified on actual iOS VoiceOver. It means the automated WCAG 2.2 A/AA
+checks pass and the specific defects above are gone.
+
+### Session 19b — Cards needed a real edge
+Reported as: hard to see where a card ends and the background begins.
+
+The card had **no border at all** — just `shadow-raise`. `--surface` on
+`--canvas` measures **1.10:1**, so the shadow was doing the entire job of
+separating a card from the page, and on a bright screen it washed out.
+
+Added `--edge`, distinct from `--line`: `--line` divides things *inside* a
+surface, `--edge` is the outer boundary of a raised surface against the ground.
+#b3aea8 light, #564d41 dark — darker than the card in light mode, lighter in
+dark, landing ~2:1 against both the ground and the fill in either theme.
+
+Three strengths were rendered on the real page before choosing (~1.6:1, ~2:1,
+~3:1). 3:1 is what WCAG 1.4.11 asks of a *control* boundary, but a card is not a
+control, and at 3:1 (#908d88) the border read as a wireframe against Daylight's
+softness. 2:1 is clearly visible without that.
+
+Applied to the puzzle card and to the library's header bar, which is the same
+`bg-surface` on `canvas` pattern and had the same problem — fixing one and not
+the other would have looked like an oversight.
+
+Unrelated, found on the way: **iCloud had littered `.next/` with 22 duplicate
+files** (`cache-life.d 2.ts` and friends), which broke `next build` with a
+TS6200 identifier conflict. `.next` is gitignored, so they were local only.
+Worth knowing this repo lives in iCloud Drive and will do it again.
+
+---
+
+## Session 20 — Theme Links (Marquee + Theme Answers)
+
+NYT-style cross-reference highlighting. A puzzle names one **marquee** (the
+revealer) and any number of **theme answers**; selecting one highlights the
+others in yellow.
+
+### The relationship is asymmetric, on purpose
+Selecting the marquee lights **every** themer. Selecting a themer lights **only
+the marquee** — not its siblings. Lighting the whole set from any member would
+tell you how many theme answers the puzzle has the first time you touched one of
+them, which is part of what you are meant to discover.
+
+### Data model
+New `theme_set` jsonb column: `{"marquee":"45A","themers":["17A","23A"]}`.
+Refs carry their direction because 17A and 17D are different answers that share
+a number — a bare number cannot identify a theme entry.
+
+`deserializeThemeSet` is deliberately tolerant. Every puzzle created before this
+holds `{}`, a row hand-edited in the Supabase table editor can hold anything,
+and this runs during the solver's **first render** — so it must read as "no
+theme" rather than throw. A themer list with no marquee is dropped entirely: no
+hub, no theme set.
+
+### Colour: a different lightness, not just a different hue
+`--cell-linked` is #e8d98e light / #544824 dark. The obvious yellows all sat at
+the *same luminance* as `--cell-word`'s mint (1.02–1.07:1), which means hue was
+the only thing separating them — exactly what fails for red-green colour
+blindness. Checked against a deuteranopia simulation and moved to a yellow that
+also differs in lightness (1.42:1 vs the plain cell, 1.16:1 vs the active word,
+12:1 for the letters on it).
+
+Grid precedence is cursor > active word > linked > plain. A linked cell inside
+the answer you are in reads as the active word — where you are beats what it
+points at.
+
+### Admin: marquee is a radio
+Two checkbox columns were the request; the marquee is a **radio** instead, with
+its `name` shared across the Across and Down sections. There is exactly one
+marquee per puzzle, so a radio makes two of them impossible by construction
+rather than something to validate and show an error for. Themer stays a
+checkbox. The roles are mutually exclusive.
+
+Column labels sit in one header row rather than on all 140 clue rows, which
+drowned the clues, and `ClueEditor` opens with a summary of the set — checked
+boxes among 140 rows cannot be found by scrolling. Warnings are advisory only,
+matching the clue-length posture: a half-built theme says so, it never blocks a
+save.
+
+### Migration sequencing — READ THIS
+`supabase/schema.sql` carries `alter table puzzles add column if not exists
+theme_set jsonb not null default '{}'`. It is additive and safe on a live table.
+
+- **Reads are safe before it runs** — every query is `select('*')`, and a missing
+  field deserializes to "no theme". Verified: with the column absent, the library
+  and solver both still return 200.
+- **Admin writes are NOT** — insert/update send `theme_set` and will fail with
+  `column puzzles.theme_set does not exist`.
+
+So the migration has to run **before this merges**, because `main` auto-deploys
+to production.
+
+### Also fixed, found by extending the a11y scan to the admin pages
+The scan now covers the admin edit page and the new-puzzle wizard, because that
+is where the new form controls live. Two pre-existing failures turned up there:
+the answer chip used `text-accent` on `bg-accent-soft` (**4.4:1**, just under
+1.4.3) across 81 rows — now `text-accent-soft-ink`, the token that exists for
+precisely that job, at 6.58:1 — and the edit page's Title input had a `<label>`
+that was never associated with it (critical, 4.1.2). The new radio and checkbox
+controls passed on their own aria-labels.
+
+### Verification
+Logic covered by a pure test of the theme functions — parsing, round-trip, eight
+shapes of malformed input, the asymmetry from both ends, and refs pointing at
+answers the grid no longer has. Rendering confirmed by screenshot in both themes
+from both ends of the relationship.
+
+**A stale-CSS trap worth recording:** the first screenshots showed the linked
+cells in beige, not yellow. The token was correct; the dev server was serving
+CSS from before it existed, and `bg-cell-linked` was resolving to transparent,
+letting `--cell-line` show through. Deleting files under `.next` while the server
+runs (which the iCloud duplicate cleanup does) is enough to cause it. Restarting
+the server fixed it. **Probe the computed style, don't trust the screenshot** —
+`getComputedStyle` said `--cell-linked` was empty, which is what identified it.
+
+`a11y.mjs`: zero violations across 13 states. Suite green: `backspace` (18),
+`cluebar-toggle` (13), `skipfilled`, `arrow-skip`, `solve`, `mobile-solve`,
+`revisit`, `banner`, `staleprogress`, `freshstart`, `timer-toggle`,
+`difficulty`, `title-shift`, `stability` (15x15 and 21x21), `target-size`.
+`tsc` and `next build` clean.
+
+`theme-links.mjs` is written and **not yet run** — it needs the column.
+
+### Session 20b — A fourth instance of the same contrast bug, hidden in a hover state
+Checking whether the Session 20 contrast fix was complete turned up one more
+`text-accent` on an `accent-soft` ground in the wizard — but only on **hover**
+(`text-accent hover:bg-accent-soft`), so the pair only meets at 4.4:1 while the
+pointer is over it. **axe scans the default state and cannot see this**, which is
+worth remembering: the scan reporting clean does not mean hover, focus and active
+states are clean. Fixed by switching the text on hover as well.
+
+The grep that found it matters too — `text-accent\b` also matches
+`text-accent-soft-ink`, because `-` is a word boundary, so the obvious check
+reports false positives and hides real ones. Use `text-accent([^-a-z]|$)`.
+
+### Session 20c — Theme links verified end to end
+The `theme_set` migration was applied to `qfbvoiotkzwrnnnzazmk`; all three
+puzzles defaulted to `{}` as intended.
+
+`theme-links.mjs` failed once on first run, and it was **the harness, not the
+product** — the exact trap this README warns about. It clicked the marquee's
+first cell directly, but on a fresh load the cursor already sits on the first
+white cell, which in most grids *is* 1-Across's first cell. Clicking the
+already-active cell toggles direction, so the active answer became 1 **Down**,
+which is not the marquee, and nothing lit. The themers passed because their first
+cells are not the grid's first cell. Fixed with the scratch-cell-then-arrow
+technique the other harnesses use; 11/11 after.
+
+Worth stating plainly: three separate harnesses have now been written in this
+project that clicked straight at a target cell and got a silently wrong result.
+**Never click straight at a cell.**
+
+`theme-admin.mjs` added — the round trip through the real UI: 80 radios and 80
+checkboxes render, the summary updates live, making a themer the marquee drops it
+from the themer list, only one marquee can ever be checked, Save persists to the
+DB, reopening the editor restores the controls, and the solver highlights it.
+14/14. Both harnesses restore the puzzle's original `theme_set` when they finish,
+so they are safe to re-run against the live database.

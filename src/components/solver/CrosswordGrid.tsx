@@ -8,6 +8,8 @@ interface Props {
   puzzle: CrosswordPuzzle
   state: SolverState
   wordCellSet: Set<string>
+  /** Cells of answers linked to the current one by the puzzle's theme set. */
+  linkedCellSet: Set<string>
   onCellClick: (row: number, col: number) => void
   onKeyDown: (e: React.KeyboardEvent) => void
   celebrationPhase: 'idle' | 'sweep' | 'gold'
@@ -25,6 +27,7 @@ export default function CrosswordGrid({
   puzzle,
   state,
   wordCellSet,
+  linkedCellSet,
   onCellClick,
   onKeyDown,
   celebrationPhase,
@@ -102,6 +105,7 @@ export default function CrosswordGrid({
             const key = `${r},${c}`
             const isActive = state.activeRow === r && state.activeCol === c
             const inWord = wordCellSet.has(key)
+            const isLinked = linkedCellSet.has(key)
             const solverCell = state.cells[r]?.[c]
 
             if (cell.type === 'black') {
@@ -117,10 +121,16 @@ export default function CrosswordGrid({
               )
             }
 
+            // Precedence: the cursor, then the answer you are in, then a
+            // linked theme answer, then plain. A linked cell that is also in
+            // the active word reads as the active word — where you are beats
+            // what it points at.
             const bgColor = isActive
               ? 'bg-cell-active'
               : inWord
               ? 'bg-cell-word'
+              : isLinked
+              ? 'bg-cell-linked'
               : 'bg-cell'
 
             return (
@@ -129,6 +139,7 @@ export default function CrosswordGrid({
                 data-cell="white"
                 data-active={isActive ? '' : undefined}
                 data-in-word={inWord ? '' : undefined}
+                data-linked={isLinked && !inWord ? '' : undefined}
                 onPointerDown={e => {
                   // preventDefault avoids the synthesised mouse sequence and the
                   // text-selection/scroll behaviour that comes with it on touch.

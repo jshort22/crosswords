@@ -3,8 +3,8 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Grid } from '@/lib/crossword/types'
-import { createEmptyGrid, numberGrid, serializeGrid, buildClues, difficultyLabel } from '@/lib/crossword/utils'
+import type { Grid, ThemeSet } from '@/lib/crossword/types'
+import { createEmptyGrid, numberGrid, serializeGrid, buildClues, difficultyLabel, EMPTY_THEME_SET, serializeThemeSet } from '@/lib/crossword/utils'
 import StepIndicator from './StepIndicator'
 import GridEditor from './GridEditor'
 import ClueEditor from './ClueEditor'
@@ -198,6 +198,8 @@ function CluesStep({
   sourceFileUrl,
   onChangeAcross,
   onChangeDown,
+  themeSet,
+  onChangeThemeSet,
   onUpload,
   onNext,
   onBack,
@@ -208,6 +210,8 @@ function CluesStep({
   sourceFileUrl: string | null
   onChangeAcross: (c: Record<number, string>) => void
   onChangeDown: (c: Record<number, string>) => void
+  themeSet: ThemeSet
+  onChangeThemeSet: (s: ThemeSet) => void
   onUpload: (file: File) => Promise<void>
   onNext: () => void
   onBack: () => void
@@ -329,6 +333,8 @@ function CluesStep({
               cluesDown={cluesDown}
               onChangeAcross={onChangeAcross}
               onChangeDown={onChangeDown}
+              themeSet={themeSet}
+              onChangeThemeSet={onChangeThemeSet}
             />
           </div>
         </div>
@@ -361,6 +367,7 @@ function PreviewStep({
   grid,
   cluesAcross,
   cluesDown,
+  themeSet,
   sourceFileUrl,
   onBack,
   onPublish,
@@ -369,6 +376,7 @@ function PreviewStep({
   grid: Grid
   cluesAcross: Record<number, string>
   cluesDown: Record<number, string>
+  themeSet: ThemeSet
   sourceFileUrl: string | null
   onBack: () => void
   onPublish: (publish: boolean) => Promise<void>
@@ -388,6 +396,7 @@ function PreviewStep({
     grid,
     cluesAcross: across,
     cluesDown: down,
+    themeSet,
     sourceFileUrl,
     isPublished: false,
     createdAt: new Date().toISOString(),
@@ -461,7 +470,7 @@ function PreviewStep({
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="py-2.5 px-4 rounded-xl border border-accent text-accent hover:bg-accent-soft font-medium text-sm transition-colors disabled:opacity-40"
+            className="py-2.5 px-4 rounded-xl border border-accent text-accent hover:bg-accent-soft hover:text-accent-soft-ink font-medium text-sm transition-colors disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Save as Draft'}
           </button>
@@ -491,6 +500,7 @@ export default function NewPuzzleWizard() {
   const [grid, setGrid] = useState<Grid>(() => numberGrid(createEmptyGrid(15, 15)))
   const [cluesAcross, setCluesAcross] = useState<Record<number, string>>({})
   const [cluesDown, setCluesDown] = useState<Record<number, string>>({})
+  const [themeSet, setThemeSet] = useState<ThemeSet>(EMPTY_THEME_SET)
 
   const handleUpload = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop() ?? 'jpg'
@@ -515,13 +525,14 @@ export default function NewPuzzleWizard() {
       clues_across: cluesAcross as unknown,
       clues_down: cluesDown as unknown,
       solution: serializedGrid,
+      theme_set: serializeThemeSet(themeSet),
       source_file_url: sourceFileUrl,
       is_published: publish,
     })
 
     if (error) throw new Error(error.message)
     router.push(`/admin`)
-  }, [supabase, metadata, grid, cluesAcross, cluesDown, sourceFileUrl, router])
+  }, [supabase, metadata, grid, cluesAcross, cluesDown, themeSet, sourceFileUrl, router])
 
   return (
     <div className="min-h-screen bg-sunken">
@@ -561,6 +572,8 @@ export default function NewPuzzleWizard() {
             sourceFileUrl={sourceFileUrl}
             onChangeAcross={setCluesAcross}
             onChangeDown={setCluesDown}
+            themeSet={themeSet}
+            onChangeThemeSet={setThemeSet}
             onUpload={handleUpload}
             onNext={() => setStep(3)}
             onBack={() => setStep(1)}
@@ -572,6 +585,7 @@ export default function NewPuzzleWizard() {
             grid={grid}
             cluesAcross={cluesAcross}
             cluesDown={cluesDown}
+            themeSet={themeSet}
             sourceFileUrl={sourceFileUrl}
             onBack={() => setStep(2)}
             onPublish={handlePublish}
