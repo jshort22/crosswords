@@ -79,7 +79,7 @@ Three tests "failed" against correct code before that was in place.
 | `final-shots.mjs <id>` | Portrait / landscape / desktop layout check — which chrome is visible where, and screenshots to `/tmp/final-*.png` |
 | `linecount.mjs <id> <label> <w> <h>` | Histogram of how many rendered lines each clue takes in the clue bar, and the text of any that exceed three |
 | `threshold.mjs <all-clues.json>` | Sweeps 320/375/390/430px and reports, per width, the longest clue that fits three lines and the shortest that spills — this is where `CLUE_THREE_LINE_LIMIT` comes from |
-| `skipfilled.mjs [id]` | Auto-advance skipping filled cells/answers: skips a crossing letter, jumps over a completed word, does **not** eject you from an answer you are retyping, leaves Tab/arrows alone, and still comes back for a gap you skipped past |
+| `skipfilled.mjs [id]` | 10 desktop assertions plus a mobile one, covering every path that drops the cursor into a word: auto-advance skipping a crossing letter, jumping over a completed word, not ejecting you from an answer you are retyping, Tab/arrows still visiting a full word but landing on its first *blank*, clue-list clicks doing the same, the mobile clue-bar arrow (a separate code path from Tab), and a skipped gap still being reachable |
 | `admin-cluewarn.mjs` | Logs into `/admin`, opens an edit page, and checks the over-length clue advisory: exact boundary at 100 chars, trailing space ignored, per-section tally, and that there is **no** `maxlength` cap |
 
 ## Not a test script

@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect } from 'react'
 import type { CrosswordPuzzle, SolverState, Direction } from '@/lib/crossword/types'
-import { getWordCells, nextCellInWord, prevCellInWord } from '@/lib/crossword/utils'
+import { firstUnfilledCell, getWordCells, nextCellInWord, prevCellInWord } from '@/lib/crossword/utils'
 
 type Action =
   | { type: 'SET_LETTER'; row: number; col: number; letter: string }
@@ -124,21 +124,21 @@ function reducer(state: SolverState, action: Action, puzzle: CrosswordPuzzle): S
       const isBlank = ([r, c]: [number, number]) => !state.cells[r][c].userLetter
       const nextWordStart = () => {
         const next = clues[(currentIdx + 1) % clues.length]
-        return { ...state, activeRow: next.cells[0][0], activeCol: next.cells[0][1] }
+        const [r, c] = firstUnfilledCell(next, state.cells)
+        return { ...state, activeRow: r, activeCol: c }
       }
 
-      // skipFilled is false when the answer was already complete before this
-      // keystroke — the solver is correcting it, not filling it in. Stepping one
-      // cell at a time is what lets them retype the whole thing; skipping would
-      // eject them to some other clue after a single letter.
-      if (!action.skipFilled) {
-        const step = cells[pos + 1]
-        return step ? { ...state, activeRow: step[0], activeCol: step[1] } : nextWordStart()
-      }
-
-      // Skip past crossing letters already filled in from the other direction.
-      const nextBlank = cells.slice(pos + 1).find(isBlank)
-      if (nextBlank) return { ...state, activeRow: nextBlank[0], activeCol: nextBlank[1] }
+      // Within the word. skipFilled is false when the answer was already
+      // complete before this keystroke — the solver is correcting it, not
+      // filling it in — so step one cell at a time, which is what lets them
+      // retype the whole thing. Skipping there would eject them after a single
+      // letter. Note this governs movement WITHIN the word only: once the word
+      // is exhausted both cases take the same jump below, because "the word I
+      // was retyping is finished" is no reason to land on a full clue.
+      const within = action.skipFilled
+        ? cells.slice(pos + 1).find(isBlank)
+        : cells[pos + 1]
+      if (within) return { ...state, activeRow: within[0], activeCol: within[1] }
 
       // Nothing left to fill in this word: move to the next word that still has
       // a blank, landing on that blank rather than on the word's first cell.
@@ -159,19 +159,18 @@ function reducer(state: SolverState, action: Action, puzzle: CrosswordPuzzle): S
       const [nr, nc] = prevCellInWord(puzzle.grid, state.activeRow, state.activeCol, state.direction)
       return { ...state, activeRow: nr, activeCol: nc }
     }
-    case 'NEXT_WORD': {
-      const clues = state.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
-      const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol))
-      if (idx === -1) return state
-      const next = clues[(idx + 1) % clues.length]
-      return { ...state, activeRow: next.cells[0][0], activeCol: next.cells[0][1] }
-    }
+    // These two deliberately do NOT skip a filled answer — they are how you get
+    // back to one that is filled in but wrong. They do land on its first empty
+    // cell rather than its first cell.
+    case 'NEXT_WORD':
     case 'PREV_WORD': {
       const clues = state.direction === 'across' ? puzzle.cluesAcross : puzzle.cluesDown
       const idx = clues.findIndex(c => c.cells.some(([r, c2]) => r === state.activeRow && c2 === state.activeCol))
       if (idx === -1) return state
-      const prev = clues[(idx - 1 + clues.length) % clues.length]
-      return { ...state, activeRow: prev.cells[0][0], activeCol: prev.cells[0][1] }
+      const delta = action.type === 'NEXT_WORD' ? 1 : -1
+      const target = clues[(idx + delta + clues.length) % clues.length]
+      const [r, c] = firstUnfilledCell(target, state.cells)
+      return { ...state, activeRow: r, activeCol: c }
     }
     case 'RESTORE':
       return { ...state, cells: action.cells, startTime: action.startTime }

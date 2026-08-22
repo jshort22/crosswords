@@ -7,7 +7,7 @@
 // sitting on the cell you were about to click. So never click straight to a
 // target — go() clicks a scratch cell first, then nudges right/left, which
 // forces direction back to across (MOVE derives direction from the delta).
-import { chromium } from 'playwright'
+import { chromium, devices } from 'playwright'
 import fs from 'fs'
 const ID = process.argv[2] ?? 'a4f31732-5143-4fc9-b73c-a197db1fb41d'
 const grid = JSON.parse(fs.readFileSync('/tmp/grid.json', 'utf8'))
@@ -101,7 +101,50 @@ await go(W[1]); await press('Backspace')    // reopen the gap (backspace clears 
 await go(W[0]); await press('Q')
 await expect('came back for the reopened gap', W[1])
 
+console.log(`\n--- F. finishing a RETYPED full word still skips a full next word ---`)
+// The "no eject" rule governs movement inside the word only. Once the word is
+// exhausted, "I was retyping it" is no reason to land on a full clue.
+await fresh()
+await fillWord(W1)
+await go(W[0]); await press('B', W.length)   // complete W -> lands in W2
+await go(W[0]); await press('C', W.length)   // retype full W to its end
+await expect('landed in W2, not the full W1', W2[0])
+
+console.log(`\n--- G. Tab into a PARTIALLY filled word lands on its first blank ---`)
+await fresh()
+await go(W1[0]); await press('A')            // fill only W1's first cell
+await go(W[0]); await press('Tab')
+await expect('skipped the filled first cell', W1[1])
+
+console.log(`\n--- H. clicking a clue in the list lands on its first blank ---`)
+// State carried over from G: W1's first cell is filled, the rest of it blank.
+// Click W1's own entry in the Across list (index k+1) and it must skip that
+// filled first cell too.
+await page.locator('ol').first().locator('button').nth(k + 1).click()
+await expect('clue-list click skipped the filled first cell', W1[1])
+
 console.log(`\n${pass} passed, ${fail} failed`)
 console.log(`CONSOLE_ERRORS=${JSON.stringify(errs)}`)
 await b.close()
-process.exit(fail ? 1 : 0)
+
+// The mobile clue-bar arrows are a SEPARATE path from Tab/NEXT_WORD (goClue in
+// SolverClient walks one continuous Across-then-Down sequence), so check them too.
+const mb = await chromium.launch()
+const mpage = await (await mb.newContext({ ...devices['iPhone 13'] })).newPage()
+await mpage.goto(`http://localhost:3000/puzzles/${ID}`, { waitUntil: 'networkidle' })
+await mpage.evaluate(() => localStorage.clear())
+await mpage.reload({ waitUntil: 'networkidle' })
+await mpage.waitForSelector(SEL)
+const mactive = () => mpage.evaluate(s =>
+  [...document.querySelectorAll(s)].findIndex(d => d.className.includes('bg-amber-300')), SEL)
+// Fill the first cell of across word #1, then arrow into it from word #0
+await mpage.locator(SEL).nth(idx(...W1[0])).tap()
+await mpage.locator('div[aria-label="Letter keyboard"] button:text-is("A")').tap()
+await mpage.locator(SEL).nth(idx(...W[0])).tap()
+await mpage.locator('button[aria-label="Next clue"]').tap()
+const mgot = await mactive()
+const mok = mgot === idx(...W1[1])
+console.log(`\n--- mobile clue-bar arrow ---`)
+console.log(`  ${mok ? 'PASS' : 'FAIL'}  \u2039 \u203a landed on first blank: cursor ${fmt(mgot)}, expected ${JSON.stringify(W1[1])}`)
+await mb.close()
+process.exit(fail || !mok ? 1 : 0)

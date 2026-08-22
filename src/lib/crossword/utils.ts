@@ -1,4 +1,4 @@
-import type { Grid, GridCell, Clue, CrosswordPuzzle } from './types'
+import type { Grid, GridCell, Clue, CrosswordPuzzle, SolverCell } from './types'
 import type { PuzzleRow } from '@/lib/supabase/types'
 
 /** Returns true if the cell at [r,c] should start an across word. */
@@ -264,4 +264,21 @@ export const CLUE_THREE_LINE_LIMIT = 100
 
 export function clueOverflowsThreeLines(clue: string): boolean {
   return clue.trim().length > CLUE_THREE_LINE_LIMIT
+}
+
+/**
+ * Where the cursor should land when it is dropped into a word: the first cell
+ * still empty, or the word's first cell if it is completely filled.
+ *
+ * Every path that moves the cursor into a word goes through this — auto-advance,
+ * Tab/NEXT_WORD, the mobile clue-bar arrows, and clicking a clue in the list.
+ * They used to land on cells[0] unconditionally, which put you on a letter you
+ * had already entered and made the answer read as if it were starting over.
+ *
+ * Note this is about *placement*, not skipping. The arrows still visit every
+ * clue whether or not it is filled — that is how you get back to an answer that
+ * is filled in but wrong.
+ */
+export function firstUnfilledCell(clue: Clue, cells: SolverCell[][]): [number, number] {
+  return clue.cells.find(([r, c]) => !cells[r]?.[c]?.userLetter) ?? clue.cells[0]
 }

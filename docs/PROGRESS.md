@@ -591,3 +591,55 @@ code at first, because clicking the cell that is already active toggles
 direction — and with auto-advance the cursor is usually already on the cell you
 were about to click. `go()` in that script clicks a scratch cell first, then
 nudges with arrow keys to force a known direction.
+
+---
+
+## Session 12b — The Skip Wasn't Visible, Because Placement Was Still Wrong
+
+Reported as "not seeing the change — when I get to an already filled in answer,
+it starts with the first letter in that clue instead of skipping over it."
+
+The Session 12 code *was* live (a probe confirmed the new behaviour was running
+on the dev server). Two separate gaps made it invisible in normal solving, and
+both surfaced as "the cursor is sitting on the first letter of a filled answer":
+
+**1. Every path that moved the cursor into a word landed on `cells[0]`.**
+Auto-advance had been taught to land on the first blank, but `NEXT_WORD`/`PREV_WORD`
+(Tab), the mobile clue-bar arrows (`goClue` — a *separate* path from Tab), and
+clicking a clue in the panel or sheet had not. So arrowing into a part-solved
+answer put you on a letter you had already entered. That is the one that would
+have been hit constantly, since it needs no unusual sequence at all.
+
+Fixed with a single `firstUnfilledCell(clue, cells)` helper in `utils.ts`, now
+used by all four. Five call sites previously wrote `cells[0]` by hand — the kind
+of duplication where teaching one of them a new rule leaves the others behind,
+which is exactly what happened.
+
+**2. Retyping a complete answer to its end landed on the literal next clue.**
+A real bug in the Session 12 change: the `skipFilled` flag correctly stops the
+cursor skipping *within* an answer you are retyping, but it was also governing
+the jump at the word boundary. So finishing a retype dumped you on the next
+clue's first cell even when that clue was full. "The word I was retyping is
+finished" is no reason to land on a full answer — both cases now take the same
+next-word-with-a-blank jump, and only movement *inside* the word differs.
+
+### Still deliberately not skipping
+Tab and the clue-bar arrows still *visit* a completely filled answer — they land
+on its first cell because it has no blank. That was the explicit choice in
+Session 12: they are how you get back to an answer that is filled in but wrong,
+and Show Incorrect sends you looking for exactly those.
+
+### Verification
+`skipfilled.mjs` grew from 7 to 10 desktop assertions plus a mobile one, green on
+both the 15×15 and the 21×21. New cases: finishing a retyped full word still
+skips a full next word; Tab into a partially filled word lands on its first
+blank; a clue-list click does the same; and the mobile clue-bar arrow does too
+(worth its own case — `goClue` is a different code path from `NEXT_WORD` and
+would not have been covered by the Tab test). Full existing suite re-run green.
+`tsc --noEmit` and `next build` clean.
+
+**Testing lesson:** the Session 12 suite passed while the feature was, in
+practice, not working. Every assertion drove the cursor with `Tab` or by typing,
+and asserted on *auto-advance*; nothing asserted where the arrows and clue clicks
+put the cursor. A green suite over one code path says nothing about the four
+others that do the same job.

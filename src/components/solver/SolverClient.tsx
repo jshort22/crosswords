@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import Link from 'next/link'
 import type { CrosswordPuzzle, Clue, SolverState, Direction } from '@/lib/crossword/types'
 import { useCrosswordSolver } from '@/hooks/useCrosswordSolver'
-import { getActiveClue, difficultyLabel, difficultyColors, formatTime, prevCellInWord } from '@/lib/crossword/utils'
+import { getActiveClue, difficultyLabel, difficultyColors, firstUnfilledCell, formatTime, prevCellInWord } from '@/lib/crossword/utils'
 import CrosswordGrid from './CrosswordGrid'
 import CluePanel from './CluePanel'
 import CompletionModal from './CompletionModal'
@@ -224,23 +224,23 @@ export default function SolverClient({ puzzle }: Props) {
   const handleAcrossClueClick = useCallback(
     (clue: Clue) => {
       if (clue.cells.length > 0) {
-        const [r, c] = clue.cells[0]
+        const [r, c] = firstUnfilledCell(clue, state.cells)
         setActive(r, c)
         setDirection('across')
       }
     },
-    [setActive, setDirection]
+    [state.cells, setActive, setDirection]
   )
 
   const handleDownClueClick = useCallback(
     (clue: Clue) => {
       if (clue.cells.length > 0) {
-        const [r, c] = clue.cells[0]
+        const [r, c] = firstUnfilledCell(clue, state.cells)
         setActive(r, c)
         setDirection('down')
       }
     },
-    [setActive, setDirection]
+    [state.cells, setActive, setDirection]
   )
 
   const activeAcrossClue = getActiveClue(puzzle.cluesAcross, state.activeRow, state.activeCol)
@@ -264,10 +264,11 @@ export default function SolverClient({ puzzle }: Props) {
       // setActive BEFORE setDirection: SET_ACTIVE toggles direction when the
       // target cell equals the current one, which is reachable at the
       // Across/Down boundary. Setting direction after makes it deterministic.
-      setActive(next.clue.cells[0][0], next.clue.cells[0][1])
+      const [r, c] = firstUnfilledCell(next.clue, state.cells)
+      setActive(r, c)
       setDirection(next.dir)
     },
-    [puzzle.cluesAcross, puzzle.cluesDown, state.direction, activeClue, setActive, setDirection]
+    [puzzle.cluesAcross, puzzle.cluesDown, state.direction, state.cells, activeClue, setActive, setDirection]
   )
 
   const handleSheetAcrossClick = useCallback(
