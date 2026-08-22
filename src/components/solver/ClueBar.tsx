@@ -16,7 +16,7 @@ interface Props {
 export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }: Props) {
   const arrowClass =
     'shrink-0 w-11 min-h-11 flex items-center justify-center text-2xl leading-none ' +
-    'text-gray-500 dark:text-gray-400 active:bg-gray-200 dark:active:bg-gray-700 transition-colors'
+    'text-ink-soft active:bg-sunken transition-colors'
 
   return (
     /* Fixed height, deliberately: if the bar grew with the clue, the grid area
@@ -30,7 +30,7 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
        430px wide, 297/298 at 390px, and 295/298 at 375px (at 320px, nine
        clues still overflow and two need five lines). It costs 20px of grid
        height on every puzzle, which is the trade being made. */
-    <div className="touch-target shrink-0 md:hidden h-[4.75rem] flex items-stretch border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="touch-target shrink-0 md:hidden h-[4.75rem] flex items-stretch border-t border-line bg-sunken">
       <button type="button" tabIndex={-1} aria-label="Previous clue" onClick={onPrev} className={arrowClass}>
         ‹
       </button>
@@ -39,7 +39,7 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
         type="button"
         tabIndex={-1}
         onClick={onOpenList}
-        className="flex-1 min-w-0 px-1 py-2 text-left flex items-center active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+        className="flex-1 min-w-0 px-1 py-2 text-left flex items-center active:bg-accent-soft transition-colors"
       >
         {clue ? (
           // items-center on the button centres this block in the fixed bar, so a
@@ -49,7 +49,7 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
             {/* mt-0.5 optically aligns the smaller number with the first text line,
                 which items-baseline used to do — but baseline alignment only
                 considers the first line, so it can't be used once text wraps. */}
-            <span className="shrink-0 mt-0.5 text-xs font-bold text-gray-500 dark:text-gray-400">
+            <span className="shrink-0 mt-0.5 text-xs font-bold text-ink-soft">
               {clue.number}
               {direction === 'across' ? 'A' : 'D'}
             </span>
@@ -64,12 +64,12 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
                 three lines. A px cap (e.g. max-h-14) slices the fourth line in
                 half, which reads as broken rather than as "there is more,
                 scroll". Keep this in step with the bar's h-[4.75rem] above. */}
-            <span className="min-w-0 flex-1 max-h-[4.125em] overflow-y-auto overscroll-contain text-sm leading-snug text-gray-800 dark:text-gray-200">
-              {clue.clue || <em className="text-gray-400">No clue</em>}
+            <span className="min-w-0 flex-1 max-h-[4.125em] overflow-y-auto overscroll-contain text-sm leading-snug text-ink">
+              {clue.clue || <em className="text-ink-soft">No clue</em>}
             </span>
           </div>
         ) : (
-          <span className="text-sm text-gray-400 dark:text-gray-500 italic">Select a cell</span>
+          <span className="text-sm text-ink-soft italic">Select a cell</span>
         )}
       </button>
 
@@ -78,7 +78,7 @@ export default function ClueBar({ clue, direction, onPrev, onNext, onOpenList }:
       </button>
 
       {/* Only visible in phone landscape, where the keyboard is hidden. */}
-      <span className="landscape-only hidden shrink-0 items-center pr-3 text-[10px] leading-tight text-gray-400 dark:text-gray-500">
+      <span className="landscape-only hidden shrink-0 items-center pr-3 text-[10px] leading-tight text-ink-soft">
         Rotate to type
       </span>
     </div>

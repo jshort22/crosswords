@@ -327,13 +327,13 @@ export default function SolverClient({ puzzle }: Props) {
   return (
     <div className="h-svh flex flex-col overflow-hidden overscroll-none pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {/* Header — sections match the main layout widths so the title centres over the grid */}
-      <header className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center pt-[env(safe-area-inset-top)]">
+      <header className="shrink-0 bg-surface border-b border-line flex items-center pt-[env(safe-area-inset-top)]">
         {/* Left: back button. w-40 on desktop matches the aside so the title
             centres over the grid; auto width on mobile. */}
         <div className="md:w-40 shrink-0 px-3 py-2 md:px-4 md:py-3 flex items-center">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-sunken text-xs md:text-[13px] font-medium text-ink-soft hover:text-ink transition-colors whitespace-nowrap"
           >
             <span aria-hidden>←</span>
             <span className="hidden md:inline">All Puzzles</span>
@@ -342,10 +342,10 @@ export default function SolverClient({ puzzle }: Props) {
 
         {/* Center: title + difficulty — flex-1 matches the grid column */}
         <div className="flex-1 min-w-0 py-2 md:py-3 flex flex-col items-center gap-0.5 md:gap-1">
-          <h1 className="text-sm md:text-base font-bold text-gray-900 dark:text-white leading-tight text-center font-serif truncate max-w-full px-1">
+          <h1 className="font-display text-sm md:text-lg font-semibold tracking-[-0.02em] text-ink leading-tight text-center truncate max-w-full px-1">
             {puzzle.title}
           </h1>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${difficultyColors[puzzle.difficulty] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+          <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${difficultyColors[puzzle.difficulty] ?? 'bg-sunken text-ink-soft'}`}>
             {difficultyLabel(puzzle.difficulty)}
           </span>
         </div>
@@ -353,16 +353,16 @@ export default function SolverClient({ puzzle }: Props) {
         {/* Right: timer + theme + (mobile) actions menu. w-64/72 on desktop
             mirrors the clue aside so the title stays centred over the grid. */}
         <div className="md:w-64 lg:w-72 shrink-0 px-3 py-2 md:px-4 md:py-3 flex items-center md:flex-col md:items-end gap-2 md:gap-1.5 ml-auto">
-          <span className="text-base md:text-xl font-mono font-semibold tabular-nums text-gray-700 dark:text-gray-200">
+          <span data-timer="" className="text-base md:text-xl font-semibold tabular-nums text-ink">
             {timerVisible ? formatTime(elapsed) : '--:--'}
           </span>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <label className="hidden md:flex items-center gap-1.5 cursor-pointer">
-              <span className="text-xs text-gray-400 dark:text-gray-500">Timer</span>
+              <span className="text-xs text-ink-soft">Timer</span>
               <div
                 onClick={() => setTimerVisible(v => !v)}
-                className={`relative w-8 h-4 rounded-full transition-colors ${timerVisible ? 'bg-amber-400' : 'bg-gray-200 dark:bg-gray-600'}`}
+                className={`relative w-8 h-4 rounded-full transition-colors ${timerVisible ? 'bg-accent' : 'bg-line'}`}
               >
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${timerVisible ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
@@ -373,7 +373,7 @@ export default function SolverClient({ puzzle }: Props) {
                 onClick={() => setMenuOpen(o => !o)}
                 aria-label="Puzzle actions"
                 aria-expanded={menuOpen}
-                className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-lg text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+                className="md:hidden w-9 h-9 flex items-center justify-center rounded-full text-lg bg-sunken text-ink-soft transition-colors"
               >
                 ⋯
               </button>
@@ -388,7 +388,7 @@ export default function SolverClient({ puzzle }: Props) {
       {isMobile && menuOpen && (
         <div className="md:hidden fixed inset-0 z-30" onClick={() => setMenuOpen(false)}>
           <div
-            className="absolute right-2 top-2 w-52 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-2 shadow-xl flex flex-col gap-2 mt-[env(safe-area-inset-top)]"
+            className="absolute right-2 top-2 w-56 rounded-[20px] bg-surface p-2.5 shadow-float flex flex-col gap-2 mt-[env(safe-area-inset-top)]"
             onClick={e => e.stopPropagation()}
           >
             <SolverActions
@@ -403,7 +403,7 @@ export default function SolverClient({ puzzle }: Props) {
       {/* Main area */}
       <main className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left action panel */}
-        <aside className="hidden md:flex flex-col w-40 border-r border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-3 gap-2">
+        <aside className="hidden md:flex flex-col w-40 border-r border-line bg-sunken p-3 gap-2">
           <SolverActions variant="sidebar" onReset={handleReset} onShowIncorrect={showIncorrect} />
         </aside>
 
@@ -427,7 +427,7 @@ export default function SolverClient({ puzzle }: Props) {
             />
             {/* Error notification */}
             {state.hasErrors && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-400 font-medium">
+              <div className="bg-danger-soft rounded-full px-4 py-2.5 text-sm text-danger font-medium">
                 At least one letter is wrong. Keep trying!
               </div>
             )}
@@ -435,24 +435,24 @@ export default function SolverClient({ puzzle }: Props) {
 
           {/* Active clue bar — pinned below the grid, always in view */}
           <div className="hidden md:flex px-4 pb-4 justify-center">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2 max-w-full">
+            <div className="bg-surface shadow-key rounded-full px-4 py-2.5 text-sm flex items-center gap-2 max-w-full">
               {activeClue ? (
                 <>
-                  <span className="font-bold text-gray-500 dark:text-gray-400 shrink-0">
+                  <span className="font-bold text-ink-soft shrink-0">
                     {activeClue.number} {state.direction === 'across' ? 'Across' : 'Down'}
                   </span>
-                  <span className="text-gray-800 dark:text-gray-200">{activeClue.clue}</span>
+                  <span className="text-ink">{activeClue.clue}</span>
                 </>
               ) : (
-                <span className="text-gray-400 dark:text-gray-500 italic">Select a cell</span>
+                <span className="text-ink-soft italic">Select a cell</span>
               )}
             </div>
           </div>
         </div>
 
         {/* Clue panels — hidden on small screens, shown on medium+ */}
-        <aside className="hidden md:flex flex-col w-64 lg:w-72 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-          <div className="flex-1 overflow-hidden flex flex-col border-b border-gray-200">
+        <aside className="hidden md:flex flex-col w-64 lg:w-72 border-l border-line bg-surface overflow-hidden">
+          <div className="flex-1 overflow-hidden flex flex-col border-b border-line">
             <CluePanel
               title="Across"
               clues={puzzle.cluesAcross}

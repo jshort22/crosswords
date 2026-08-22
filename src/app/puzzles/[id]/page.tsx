@@ -28,18 +28,18 @@ export default async function PuzzlePage({ params }: Props) {
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-md">
           <div className="text-5xl mb-4">⚠️</div>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2 font-serif">
+          <h1 className="font-display text-xl font-semibold text-ink mb-2">
             Couldn&apos;t load this puzzle
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-ink-soft mb-6">
             The puzzle database is unreachable. This puzzle still exists &mdash; try again in a
             moment.
           </p>
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink bg-sunken rounded-full px-4 py-2.5 transition-colors"
           >
-            ← All Puzzles
+            ← All puzzles
           </Link>
         </div>
       </div>

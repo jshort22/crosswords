@@ -25,8 +25,8 @@ function GridThumbnail({ grid, rows, cols }: { grid: Json; rows: number; cols: n
             y={r * cellH}
             width={cellW}
             height={cellH}
-            fill={cell.t === 'b' ? '#1c1c1c' : '#ffffff'}
-            stroke="#d1d5db"
+            fill={cell.t === 'b' ? 'var(--cell-black)' : 'var(--cell)'}
+            stroke="var(--cell-line)"
             strokeWidth={0.5}
           />
         ))
@@ -37,29 +37,29 @@ function GridThumbnail({ grid, rows, cols }: { grid: Json; rows: number; cols: n
 
 export default function PuzzleCard({ puzzle }: Props) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-center bg-gray-50 dark:bg-gray-700 border-b border-gray-100 dark:border-gray-600 py-4">
+    <div className="bg-surface rounded-[20px] shadow-raise hover:-translate-y-1 transition-transform duration-200 flex flex-col overflow-hidden">
+      <div className="flex items-center justify-center bg-sunken py-7">
         <div className="rounded-lg overflow-hidden">
           <GridThumbnail grid={puzzle.grid} rows={puzzle.grid_size_rows} cols={puzzle.grid_size_cols} />
         </div>
       </div>
       <div className="p-5 flex flex-col gap-3 flex-1">
-        <h2 className="font-bold text-gray-900 dark:text-white text-lg leading-tight text-center font-serif">
+        <h2 className="font-display font-semibold text-ink text-[19px] leading-tight tracking-[-0.02em] text-center">
           {puzzle.title}
         </h2>
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
-            Grid: {puzzle.grid_size_rows}×{puzzle.grid_size_cols}
+          <span className="text-[11px] font-medium px-2.5 py-1.5 rounded-full bg-sunken text-ink-soft">
+            {puzzle.grid_size_rows}×{puzzle.grid_size_cols}
           </span>
           <span
-            className={`text-xs font-semibold px-2 py-1 rounded-full ${
-              difficultyColors[puzzle.difficulty] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+            className={`text-[11px] font-medium px-2.5 py-1.5 rounded-full ${
+              difficultyColors[puzzle.difficulty] ?? 'bg-sunken text-ink-soft'
             }`}
           >
-            Difficulty: {difficultyLabel(puzzle.difficulty)}
+            {difficultyLabel(puzzle.difficulty)}
           </span>
         </div>
-        {puzzle.author && <p className="text-sm text-gray-500 dark:text-gray-400 text-center">By {puzzle.author}</p>}
+        {puzzle.author && <p className="text-sm text-ink-soft text-center">By {puzzle.author}</p>}
         <PuzzleCardActions puzzleId={puzzle.id} />
       </div>
     </div>

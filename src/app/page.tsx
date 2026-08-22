@@ -18,19 +18,21 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-5xl mx-auto px-4 py-5 pt-[calc(1.25rem+env(safe-area-inset-top))] flex items-center justify-between">
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight font-serif">
-            Crossword Puzzles
-          </h1>
+      <header className="pt-[env(safe-area-inset-top)]">
+        <div className="max-w-5xl mx-auto px-4 pt-5">
+          <div className="bg-surface rounded-[18px] shadow-raise px-5 py-4 flex items-center justify-between">
+          <h1 className="font-display text-[26px] font-extrabold tracking-[-0.03em] text-ink">
+              Crossword Puzzles
+            </h1>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Link
               href="/admin"
-              className="hide-in-standalone text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 transition-colors"
+              className="hide-in-standalone text-xs font-medium text-ink-soft hover:text-ink bg-sunken rounded-full px-3.5 py-2.5 transition-colors"
             >
               Admin
             </Link>
+          </div>
           </div>
         </div>
       </header>
@@ -39,10 +41,10 @@ export default async function HomePage() {
         {error ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">⚠️</div>
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <h2 className="font-display text-xl font-semibold text-ink mb-2">
               Couldn&apos;t load puzzles
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-ink-soft mb-6">
               The puzzle database is unreachable. This is a server problem, not an empty library
               &mdash; your puzzles are safe. Try again in a moment.
             </p>
@@ -50,11 +52,11 @@ export default async function HomePage() {
         ) : !puzzles || puzzles.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🔤</div>
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No puzzles yet</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">Head to the admin area to create your first crossword.</p>
+            <h2 className="font-display text-xl font-semibold text-ink mb-2">No puzzles yet</h2>
+            <p className="text-ink-soft mb-6">Head to the admin area to create your first crossword.</p>
             <Link
               href="/admin/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-accent text-accent-ink font-bold text-sm transition-opacity hover:opacity-90"
             >
               Create a Puzzle
             </Link>
@@ -67,7 +69,7 @@ export default async function HomePage() {
             <div className="space-y-10">
               {small.length > 0 && (
                 <section>
-                  <h2 className="text-sm font-black tracking-widest uppercase text-gray-600 dark:text-gray-400 mb-4 pb-2">
+                  <h2 className="font-display text-xs font-semibold tracking-[0.14em] uppercase text-accent mb-4">
                     15×15
                   </h2>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -79,7 +81,7 @@ export default async function HomePage() {
               )}
               {large.length > 0 && (
                 <section>
-                  <h2 className="text-sm font-black tracking-widest uppercase text-gray-600 dark:text-gray-400 mb-4 pb-2">
+                  <h2 className="font-display text-xs font-semibold tracking-[0.14em] uppercase text-accent mb-4">
                     21×21
                   </h2>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

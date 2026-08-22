@@ -24,20 +24,22 @@ export default function PuzzleCardActions({ puzzleId }: Props) {
   return (
     <div className="mt-auto flex flex-col gap-2">
       {solveTime !== null && (
-        <div className="flex items-center justify-center gap-1.5 text-sm text-amber-600 font-semibold">
-          <span>🏆</span>
+        <div className="flex items-center justify-center gap-1.5 text-[13px] text-accent font-bold">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
           <span>{formatTime(solveTime)}</span>
         </div>
       )}
       <Link
         href={`/puzzles/${puzzleId}`}
-        className={`inline-flex items-center justify-center py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors text-white ${
+        className={`inline-flex items-center justify-center py-3.5 px-4 rounded-full font-bold text-[13px] transition-opacity hover:opacity-90 ${
           solveTime !== null
-            ? 'bg-amber-400 hover:bg-amber-500'
-            : 'bg-blue-600 hover:bg-blue-700'
+            ? 'bg-sunken text-ink'
+            : 'bg-accent text-accent-ink'
         }`}
       >
-        {solveTime !== null ? 'View Puzzle' : 'Solve Puzzle'}
+        {solveTime !== null ? 'View puzzle' : 'Solve puzzle'}
       </Link>
     </div>
   )
