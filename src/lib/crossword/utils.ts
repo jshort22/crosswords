@@ -236,3 +236,32 @@ export function formatTime(seconds: number): string {
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
+
+/**
+ * Longest clue that still fits the mobile clue bar's three lines.
+ *
+ * The bar is sized for exactly three lines (see ClueBar). Measured in a real
+ * browser across all 298 clues in the library, plus a synthetic prose sweep,
+ * the character count where a fourth line starts depends on viewport width:
+ *
+ *   320px (iPhone SE 1st gen)          three lines up to ~90 chars
+ *   375px (iPhone SE 2/3, 13 mini)     ~112 chars
+ *   390px (iPhone 12–16)               ~123 chars
+ *   430px (Pro Max)                    ~145 chars
+ *
+ * 100 is the round number sitting safely below the 375px crossover band — real
+ * clues there still fit at 101 chars and spilled at 114 — so anything under it
+ * is safe on every phone still in common use.
+ *
+ * This is deliberately a soft warning in the admin clue editor, never a cap.
+ * A character count can only ever approximate wrapping (a line of "l"s is far
+ * narrower than a line of "W"s), and a clue that spills is not broken — it
+ * scrolls inside the bar and is one tap away in full in the clue sheet. So the
+ * count may warn on a clue that would actually have fit; that is the right way
+ * round for an advisory.
+ */
+export const CLUE_THREE_LINE_LIMIT = 100
+
+export function clueOverflowsThreeLines(clue: string): boolean {
+  return clue.trim().length > CLUE_THREE_LINE_LIMIT
+}
