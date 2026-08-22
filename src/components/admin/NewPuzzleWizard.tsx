@@ -470,7 +470,7 @@ function PreviewStep({
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="py-2.5 px-4 rounded-xl border border-accent text-accent hover:bg-accent-soft font-medium text-sm transition-colors disabled:opacity-40"
+            className="py-2.5 px-4 rounded-xl border border-accent text-accent hover:bg-accent-soft hover:text-accent-soft-ink font-medium text-sm transition-colors disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Save as Draft'}
           </button>

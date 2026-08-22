@@ -1290,3 +1290,15 @@ the server fixed it. **Probe the computed style, don't trust the screenshot** �
 `tsc` and `next build` clean.
 
 `theme-links.mjs` is written and **not yet run** — it needs the column.
+
+### Session 20b — A fourth instance of the same contrast bug, hidden in a hover state
+Checking whether the Session 20 contrast fix was complete turned up one more
+`text-accent` on an `accent-soft` ground in the wizard — but only on **hover**
+(`text-accent hover:bg-accent-soft`), so the pair only meets at 4.4:1 while the
+pointer is over it. **axe scans the default state and cannot see this**, which is
+worth remembering: the scan reporting clean does not mean hover, focus and active
+states are clean. Fixed by switching the text on hover as well.
+
+The grep that found it matters too — `text-accent\b` also matches
+`text-accent-soft-ink`, because `-` is a word boundary, so the obvious check
+reports false positives and hides real ones. Use `text-accent([^-a-z]|$)`.
