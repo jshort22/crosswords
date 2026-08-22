@@ -36,7 +36,7 @@ export default function CluePanel({ title, clues, activeClueNumber, onClueClick 
               <button
                 ref={isActive ? activeRef : null}
                 onClick={() => onClueClick(clue)}
-                className={`w-full text-left px-3 py-1.5 flex gap-2 transition-colors ${
+                className={`w-full text-left px-3 py-1.5 max-md:py-3 flex gap-2 transition-colors ${
                   isActive
                     ? 'bg-amber-100 dark:bg-amber-800/40 font-semibold text-gray-900 dark:text-amber-200'
                     : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'

@@ -65,3 +65,51 @@ body {
 .animate-pop-in {
   animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* ---------- Mobile / PWA foundations ---------- */
+
+html {
+  /* iOS otherwise inflates text when rotated to landscape */
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  /* Pull-to-refresh mid-puzzle would reload and look like data loss */
+  overscroll-behavior: none;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Applied to the grid and the on-screen keyboard. `manipulation` kills
+   double-tap-to-zoom while leaving panning intact — this is the correct fix,
+   not user-scalable=no (which iOS ignores anyway and which breaks pinch zoom). */
+.touch-target {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Admin is desktop-only by design; hide its entry point when launched from the
+   Home Screen so a phone tap can't dead-end there. */
+@media (display-mode: standalone) {
+  .hide-in-standalone {
+    display: none;
+  }
+}
+
+/* Landscape on a phone: a header + grid + clue bar + 3-row keyboard genuinely
+   does not fit in ~390px of height. iOS ignores the manifest's orientation
+   lock, so this can't be prevented — instead drop the keyboard and keep the
+   grid and clue browsing usable, with a hint to rotate back to type. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-hide {
+    display: none;
+  }
+  .landscape-only {
+    display: flex;
+  }
+}

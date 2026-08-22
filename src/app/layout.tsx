@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -20,6 +20,25 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Crossword Puzzles",
   description: "Create and solve custom crossword puzzles",
+  applicationName: "Crosswords",
+  appleWebApp: {
+    capable: true,
+    title: "Crosswords",
+    statusBarStyle: "default",
+  },
+  // Clues are full of numbers and dates; without this iOS turns them into tel: links.
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Lets the app paint under the notch/home indicator so env(safe-area-inset-*) resolves.
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#b8c8e0" },
+    { media: "(prefers-color-scheme: dark)", color: "#111827" },
+  ],
 };
 
 export default function RootLayout({

@@ -13,6 +13,14 @@ interface Props {
   celebrationPhase: 'idle' | 'sweep' | 'gold'
 }
 
+// Cell size is pure CSS: the wrapper carries the puzzle's aspect ratio and the
+// tracks are 1fr, so the grid fills whatever space it's given and stays square.
+// Previously this read window.innerWidth during render, which produced a real
+// hydration mismatch (server 40px vs client 23px on a phone) and never responded
+// to rotation. There is deliberately no resize listener here — there is nothing
+// left to recompute.
+const MAX_CELL_PX = 44
+
 export default function CrosswordGrid({
   puzzle,
   state,
@@ -27,20 +35,33 @@ export default function CrosswordGrid({
     containerRef.current?.focus()
   }, [])
 
-  const cellSize = Math.min(
-    Math.floor(Math.min(
-      typeof window !== 'undefined' ? (window.innerWidth - 32) / puzzle.cols : 600 / puzzle.cols,
-      600 / puzzle.cols
-    )),
-    44
-  )
+  // Cell borders are drawn as gaps over the container background rather than
+  // per-cell borders: 1fr tracks land on fractional pixels, and per-cell borders
+  // render hairline-uneven at those sizes. The gold celebration recolours this
+  // background, which is why the borderColor prop moved up here.
+  const lineColor = celebrationPhase === 'gold' ? 'bg-amber-400' : 'bg-gray-400'
 
   return (
     <div
       ref={containerRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="outline-none focus:outline-none relative"
+      className="touch-target relative outline-none focus:outline-none"
+      style={{
+        // Fit inside BOTH axes of the parent. `width:100%` + `max-height:100%`
+        // is not enough: max-height clamps the height without recomputing the
+        // width, so a 21x21 on a short-and-wide desktop viewport came out with
+        // non-square cells. Resolving the width against the parent's height
+        // (100cqh, from its container-type:size) constrains both axes in one
+        // expression, with the third term preserving the old 44px cell cap.
+        width: `min(100cqw, calc(100cqh * ${puzzle.cols} / ${puzzle.rows}), ${puzzle.cols * MAX_CELL_PX}px)`,
+        // `relative`, `aspectRatio` and `containerType` must stay on the SAME
+        // element: the sweep overlay below is inset-0 against it, and the cqw
+        // font sizes resolve against it.
+        aspectRatio: `${puzzle.cols} / ${puzzle.rows}`,
+        containerType: 'inline-size',
+        ['--cols' as string]: puzzle.cols,
+      }}
       aria-label="Crossword grid"
     >
       {/* Sweep overlay */}
@@ -55,11 +76,10 @@ export default function CrosswordGrid({
       )}
 
       <div
-        className="grid select-none"
+        className={`grid select-none h-full w-full gap-px p-px transition-colors duration-300 ${lineColor}`}
         style={{
-          gridTemplateColumns: `repeat(${puzzle.cols}, ${cellSize}px)`,
-          gridTemplateRows: `repeat(${puzzle.rows}, ${cellSize}px)`,
-          gap: 0,
+          gridTemplateColumns: `repeat(${puzzle.cols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${puzzle.rows}, minmax(0, 1fr))`,
         }}
       >
         {puzzle.grid.map((row, r) =>
@@ -70,19 +90,16 @@ export default function CrosswordGrid({
             const solverCell = state.cells[r]?.[c]
 
             if (cell.type === 'black') {
+              // Swallow taps so a mis-hit on a black square doesn't feel dead
+              // and doesn't fall through to anything behind the grid.
               return (
                 <div
                   key={key}
                   className="bg-black"
-                  style={{ width: cellSize, height: cellSize }}
+                  onPointerDown={e => e.preventDefault()}
                 />
               )
             }
-
-            const borderColor =
-              celebrationPhase === 'gold'
-                ? 'border-amber-400'
-                : 'border-gray-400'
 
             const bgColor = isActive
               ? 'bg-amber-300'
@@ -93,14 +110,24 @@ export default function CrosswordGrid({
             return (
               <div
                 key={key}
-                onClick={() => onCellClick(r, c)}
-                className={`relative border cursor-pointer flex items-center justify-center transition-colors duration-300 ${bgColor} ${borderColor}`}
-                style={{ width: cellSize, height: cellSize, fontSize: cellSize * 0.52 }}
+                onPointerDown={e => {
+                  // preventDefault avoids the synthesised mouse sequence and the
+                  // text-selection/scroll behaviour that comes with it on touch.
+                  // But it ALSO suppresses the browser's default focus move to
+                  // the nearest focusable ancestor, which is how this container
+                  // used to regain focus after a click on a sidebar button — so
+                  // refocus explicitly, or physical-keyboard input silently dies
+                  // once anything else has been clicked.
+                  e.preventDefault()
+                  containerRef.current?.focus()
+                  onCellClick(r, c)
+                }}
+                className={`relative cursor-pointer flex items-center justify-center transition-colors duration-300 ${bgColor}`}
               >
                 {cell.number !== null && (
                   <span
-                    className="absolute top-0 left-0.5 text-gray-700 font-medium leading-none"
-                    style={{ fontSize: cellSize * 0.22 }}
+                    className="absolute top-0 left-[6%] text-gray-700 font-medium leading-none"
+                    style={{ fontSize: 'calc(22cqw / var(--cols))' }}
                   >
                     {cell.number}
                   </span>
@@ -113,6 +140,7 @@ export default function CrosswordGrid({
                       ? 'text-gray-900'
                       : ''
                   }`}
+                  style={{ fontSize: 'calc(52cqw / var(--cols))' }}
                 >
                   {solverCell?.userLetter ?? ''}
                 </span>
