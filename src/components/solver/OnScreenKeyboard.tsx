@@ -15,8 +15,13 @@ const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'] as const
 // and known, which is what lets the grid size itself reliably. Letters only —
 // no space, shift, or return, since a crossword cell takes one letter.
 export default function OnScreenKeyboard({ onLetter, onDelete, disabled = false }: Props) {
+  // Key height scales with viewport height. A square grid inside a tall phone
+  // leaves slack that nothing else can use — an iPhone SE has ~40px spare, a
+  // 14 Pro Max ~260px — so it goes to the keys, where it buys easier typing.
+  // Floor is 2.75rem (44px, the iOS minimum touch target); ceiling keeps keys
+  // from looking absurd on the tallest devices.
   const keyClass =
-    'flex-1 min-w-0 h-11 rounded-md font-semibold text-base flex items-center justify-center ' +
+    'flex-1 min-w-0 h-[clamp(2.75rem,7.5svh,3.75rem)] rounded-md font-semibold text-base flex items-center justify-center ' +
     'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm ' +
     'transition-colors active:bg-gray-300 dark:active:bg-gray-600 ' +
     (disabled ? 'opacity-40' : '')
