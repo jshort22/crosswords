@@ -859,3 +859,53 @@ move on a full grid). The measurement harness is preserved as
 **Process note:** this is the second time a navigation decision was settled by
 argument and then reversed by measurement. The 13/16 number took one short
 script and would have settled it in Session 12.
+
+---
+
+## Session 15b — Home Screen Icon on Daylight
+
+The old icon was still the pre-redesign palette: periwinkle field, slate grid,
+amber accent square. Five options were drawn from the Daylight tokens and shown
+at the sizes that actually matter — 120px (Home Screen), 60px (Settings row),
+40px (Spotlight) — with iOS's squircle and Android's adaptive-crop circle
+overlaid. **A · Teal field** was chosen: the existing 5×5 concept recoloured,
+cream cells on teal with one mint square at the centre.
+
+Rasterizing the options first changed two things:
+- **Only the low-detail options survive Spotlight size.** The 5×5 grids turn to
+  texture at 40px and the mint accent square disappears entirely. Still legible
+  as a crossword, which is what matters, but worth knowing the accent is a
+  large-size detail only.
+- **Option B was unusable as first drawn.** Using the light `--line` token for
+  the grid on a cream field left it with no internal contrast and no edge — it
+  washed out completely small, and would have vanished against a light
+  wallpaper. Redrawn with the ink colour for the grid before it was shown.
+
+### Two definitions that must agree
+The icon exists twice on purpose: `apple-icon.tsx` renders the iOS 180×180
+through `next/og`, and `gen-icons.mjs` rasterizes the three manifest PNGs through
+`sharp` (manifest icons need stable paths, so they cannot point at Next's hashed
+icon route). Both were updated, and the gap/radius geometry in `gen-icons.mjs`
+was brought onto the same proportions as the preview so the shipped PNGs match
+what was chosen.
+
+`.flatten({ background: FIELD })` was added to the sharp pipeline. The art is
+opaque today, but any transparency renders **black** behind the icon on iOS, and
+Android's maskable crop expects full bleed — this makes shipping a transparent
+one impossible by accident.
+
+### Also fixed
+`manifest.ts` still carried the pre-redesign `#b8c8e0` for `background_color` and
+`theme_color` — a leftover the redesign missed, since only the `viewport`
+`themeColor` in `layout.tsx` had been updated. Android uses these for the splash
+screen and system bars. Both now `#f7f4ef`.
+
+### Verification
+Live `/apple-icon?<hash>` route fetched 200 and rendered; all three PNGs are the
+right dimensions and confirmed fully opaque (alpha 255–255); the manifest serves
+the new colours. All four rasterizations were compared side by side against the
+chosen option, plus a 56px sample.
+
+**Still needs a real iPhone** (unchanged from Session 10): that iOS honours the
+generated route for Add to Home Screen. And remember the icon is cached at
+install time — the shortcut has to be removed and re-added to see this.
