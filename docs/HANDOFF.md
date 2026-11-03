@@ -34,6 +34,7 @@ Requires `.env.local` with:
 NEXT_PUBLIC_SUPABASE_URL=https://qfbvoiotkzwrnnnzazmk.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<key>
 SUPABASE_SERVICE_ROLE_KEY=<key>
+CRON_SECRET=<any long random string; must match the Vercel env var>
 ```
 
 `pdfjs-dist` is listed in `serverExternalPackages` in `next.config.ts` so Next.js does not bundle it — it runs as a native Node.js module in the API route.
@@ -53,6 +54,7 @@ SUPABASE_SERVICE_ROLE_KEY=<key>
 | `/admin/new` | 4-step wizard to create a new puzzle — requires auth |
 | `/admin/puzzles/[id]/edit` | Edit an existing puzzle's grid, clues, and metadata — requires auth |
 | `/api/extract-clues` | POST — accepts a PDF, extracts clue text via pdfjs-dist, returns `{ cluesAcross, cluesDown }` |
+| `/api/keepalive` | GET — called by Vercel Cron twice a day (`vercel.json`) so Supabase sees activity and does not pause the free project. Requires `Authorization: Bearer $CRON_SECRET`; Vercel sends it automatically. |
 
 ---
 
